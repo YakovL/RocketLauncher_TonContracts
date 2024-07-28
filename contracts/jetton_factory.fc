@@ -1,5 +1,17 @@
 #include "imports/stdlib.fc";
 
-() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+;; == messages ==
+const operation_deploy_new_jetton = 1;
 
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    ;; accept empty messages (including sending TON to contract balance)
+    if (in_msg_body.slice_empty?()) {
+        return ();
+    }
+
+    int operation_type = in_msg_body~load_uint(32);
+
+    ;; deploy new counter
+    if (operation_type == operation_deploy_new_jetton) {
+    }
 }
