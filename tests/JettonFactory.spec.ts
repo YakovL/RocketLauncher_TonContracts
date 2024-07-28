@@ -5,28 +5,30 @@ import { JettonFactory } from '../wrappers/JettonFactory';
 import '@ton/test-utils';
 
 describe('JettonFactory', () => {
-    let code: Cell;
-
+    let factoryCode: Cell;
     beforeAll(async () => {
-        code = await compile('JettonFactory');
+        factoryCode = await compile('JettonFactory');
     });
 
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
-    let jettonFactory: SandboxContract<JettonFactory>;
-
+    let jettonFactoryContract: SandboxContract<JettonFactory>;
     beforeEach(async () => {
         blockchain = await Blockchain.create();
-
-        jettonFactory = blockchain.openContract(JettonFactory.createFromConfig({}, code));
+        const jettonFactory = JettonFactory.createFromConfig({
+        }, factoryCode);
+        jettonFactoryContract = blockchain.openContract(jettonFactory);
 
         deployer = await blockchain.treasury('deployer');
 
-        const deployResult = await jettonFactory.sendDeploy(deployer.getSender(), jettonFactory.estimatedDeployGasPrice);
+        const deployResult = await jettonFactoryContract.sendDeploy(
+            deployer.getSender(),
+            jettonFactoryContract.estimatedDeployGasPrice
+        );
 
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
-            to: jettonFactory.address,
+            to: jettonFactoryContract.address,
             deploy: true,
             success: true,
         });
@@ -34,6 +36,6 @@ describe('JettonFactory', () => {
 
     it('should deploy', async () => {
         // the check is done inside beforeEach
-        // blockchain and jettonFactory are ready to use
+        // blockchain and jettonFactoryContract are ready to use
     });
 });
