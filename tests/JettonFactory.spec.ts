@@ -22,7 +22,7 @@ describe('JettonFactory', () => {
 
         deployer = await blockchain.treasury('deployer');
 
-        const deployResult = await jettonFactory.sendDeploy(deployer.getSender(), toNano('0.05'));
+        const deployResult = await jettonFactory.sendDeploy(deployer.getSender(), jettonFactory.estimatedDeployGasPrice);
 
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,

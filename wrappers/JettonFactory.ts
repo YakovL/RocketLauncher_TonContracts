@@ -1,5 +1,6 @@
 import {
     Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode,
+    toNano,
 } from '@ton/core';
 
 export type JettonFactoryConfig = {
@@ -19,8 +20,12 @@ export class JettonFactory implements Contract {
     static createFromConfig(config: JettonFactoryConfig, code: Cell, workchain = 0) {
         const data = jettonFactoryConfigToCell(config);
         const init = { code, data };
-        return new JettonFactory(contractAddress(workchain, init), init);
+        const address = contractAddress(workchain, init);
+        return new JettonFactory(address, init);
     }
+
+    // TODO: make sure the amount is sufficient (maybe via autotests)
+    estimatedDeployGasPrice = toNano('0.05');
 
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
         await provider.internal(via, {
