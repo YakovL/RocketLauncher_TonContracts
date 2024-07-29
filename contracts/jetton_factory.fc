@@ -10,6 +10,19 @@ cell build_minter_init_data(int total_supply, slice admin_address, cell metadata
     .end_cell();
 }
 
+;; taken from https://docs.ton.org/develop/func/cookbook#how-to-build-a-stateinit-cell, tested on counter factory
+cell build_contract_init_state(cell init_code, cell init_data) inline {
+    return begin_cell()
+        .store_uint(0, 1) ;; split_depth:(Maybe (## 5))
+        .store_uint(0, 1) ;; special:(Maybe TickTock)
+        .store_uint(1, 1) ;; (Maybe ^Cell)
+        .store_uint(1, 1) ;; (Maybe ^Cell)
+        .store_uint(0, 1) ;; (HashmapE 256 SimpleLib)
+        .store_ref(init_code)
+        .store_ref(init_data)
+    .end_cell();
+}
+
 ;; == storage ==
 ;; this must be aligned with jettonFactoryConfigToCell
 (
