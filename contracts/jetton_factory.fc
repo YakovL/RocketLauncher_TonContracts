@@ -37,6 +37,33 @@ slice calculate_minter_address(cell init_state) inline {
     .begin_parse();
 }
 
+() deploy_jetton(cell init_state) impure inline {
+    send_raw_message(
+        begin_cell()
+            ;; info = header
+            .store_uint(0x18, 6)
+            .store_slice(calculate_minter_address(init_state))
+            .store_coins(0) ;; in nano; is needed > 0?
+            .store_uint(0, 1 + 4 + 4 + 64 + 32)
+
+            ;; init (Maybe (Either StateInit ^StateInit))
+            .store_uint(1, 1)      ;; init is non-empty
+            .store_uint(1, 1)      ;; serialized in another cell
+            .store_ref(init_state) ;; ^StateInit
+
+            ;; body
+            .store_uint(0, 1) ;; in-place body (if adding by ref, switch to 1)
+            ;; if non-empty body is needed: either
+            ;; .store_ref(body)  and change ↑ flag or
+            ;; ..how to add an inline body? .store_slice(begin_parse(body)) ?
+        .end_cell(),
+
+        ;; mode 0? mode 64 = carry the remaining value in the new message
+        ;; flag 16 = __
+        0 + 16
+    );
+}
+
 ;; == storage ==
 ;; this must be aligned with jettonFactoryConfigToCell
 (
