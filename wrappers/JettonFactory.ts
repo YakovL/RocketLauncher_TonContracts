@@ -4,10 +4,15 @@ import {
 } from '@ton/core';
 
 export type JettonFactoryConfig = {
+    minterCode: Cell;
+    walletCode: Cell;
 };
 
 export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
-    return beginCell().endCell();
+    return beginCell()
+        .storeRef(config.minterCode)
+        .storeRef(config.walletCode)
+        .endCell();
 }
 
 export class JettonFactory implements Contract {

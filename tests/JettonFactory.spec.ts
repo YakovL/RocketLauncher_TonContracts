@@ -6,8 +6,12 @@ import '@ton/test-utils';
 
 describe('JettonFactory', () => {
     let factoryCode: Cell;
+    let minterCode: Cell;
+    let walletCode: Cell;
     beforeAll(async () => {
         factoryCode = await compile('JettonFactory');
+        minterCode = await compile('JettonMinter');
+        walletCode = await compile('JettonWallet');
     });
 
     let blockchain: Blockchain;
@@ -16,6 +20,8 @@ describe('JettonFactory', () => {
     beforeEach(async () => {
         blockchain = await Blockchain.create();
         const jettonFactory = JettonFactory.createFromConfig({
+            minterCode,
+            walletCode,
         }, factoryCode);
         jettonFactoryContract = blockchain.openContract(jettonFactory);
 

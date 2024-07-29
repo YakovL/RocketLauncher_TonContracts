@@ -1,5 +1,18 @@
 #include "imports/stdlib.fc";
 
+;; == storage ==
+;; this must be aligned with jettonFactoryConfigToCell
+(
+    cell, ;; minter_code
+    cell  ;; wallet_code
+) load_data() inline {
+    slice ds = get_data().begin_parse();
+    return (
+        ds~load_ref(), ;; minter_code
+        ds~load_ref()  ;; wallet_code
+    );
+}
+
 ;; == messages ==
 const operation_deploy_new_jetton = 1;
 
@@ -10,6 +23,7 @@ const operation_deploy_new_jetton = 1;
     }
 
     int operation_type = in_msg_body~load_uint(32);
+    (cell minter_code, cell wallet_code) = load_data();
 
     ;; deploy new counter
     if (operation_type == operation_deploy_new_jetton) {
