@@ -23,6 +23,20 @@ cell build_contract_init_state(cell init_code, cell init_data) inline {
     .end_cell();
 }
 
+;; layout is defined by: https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L105
+;; implementation is based on https://docs.ton.org/develop/func/cookbook#generate-internal-address
+;; and https://github.com/ton-blockchain/token-contract/blob/main/ft/jetton-utils.fc, tested on counter factory
+;; not sure if anycast is needed and if other workchain ids will be needed in the future
+slice calculate_minter_address(cell init_state) inline {
+    return begin_cell()
+        .store_uint(2, 2)          ;; addr_std$10
+        .store_uint(0, 1)          ;; anycast nothing
+        .store_int(0, 8)           ;; workchain id = 0 (might need adjustments in the future)
+        .store_uint(cell_hash(init_state), 256)
+    .end_cell()
+    .begin_parse();
+}
+
 ;; == storage ==
 ;; this must be aligned with jettonFactoryConfigToCell
 (
