@@ -1,5 +1,15 @@
 #include "imports/stdlib.fc";
 
+;; this must be aligned with the minter's save_data contents (and deployJettonMinter's createFromConfig)
+cell build_minter_init_data(int total_supply, slice admin_address, cell metadata, cell jetton_wallet_code) inline {
+    return begin_cell()
+        .store_coins(total_supply)
+        .store_slice(admin_address)
+        .store_ref(metadata)
+        .store_ref(jetton_wallet_code)
+    .end_cell();
+}
+
 ;; == storage ==
 ;; this must be aligned with jettonFactoryConfigToCell
 (
