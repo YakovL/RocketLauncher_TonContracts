@@ -87,9 +87,22 @@ const operation_deploy_new_jetton = 1;
     }
 
     int operation_type = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+    ;; later: maybe load minter_code and wallet_code only when deploying (but always load things like admin_address)
     (cell minter_code, cell wallet_code) = load_data();
 
     ;; deploy new counter
     if (operation_type == operation_deploy_new_jetton) {
+        ;; this must be aligned with sendDeployNewJetton
+        int total_supply = in_msg_body~load_coins();
+        cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
+        var minter_init_data = build_minter_init_data(
+            total_supply,
+            my_address(),    ;; set minter's admin_address to address of this contract
+            jetton_metadata,
+            wallet_code
+        );
+        var jetton_init_state = build_contract_init_state(minter_code, minter_init_data);
+        deploy_jetton(jetton_init_state);
     }
 }

@@ -8,6 +8,15 @@ export type JettonFactoryConfig = {
     walletCode: Cell;
 };
 
+// Current implementation only supports off-chain format:
+// https://github.com/ton-blockchain/TEPs/blob/master/text/0064-token-data-standard.md#jetton-metadata-example-offchain
+export type JettonMinterConfig = {
+    totalSupply: bigint
+    // metadata, also known as 'content'
+    metadataType: 0 | 1 // ?? on-chain vs off-chain?
+    metadataUri: string
+};
+
 export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
     return beginCell()
         .storeRef(config.minterCode)
@@ -37,6 +46,36 @@ export class JettonFactory implements Contract {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell().endCell(),
+        });
+    }
+
+    // public methods
+    // Based on https://github.com/ton-blockchain/token-contract/blob/main/wrappers/JettonMinter.ts
+    // In our case, admin is the factory contract and wallet code is stored inside it, so JettonMinterConfig is simpler
+    async sendDeployNewJetton(provider: ContractProvider, via: Sender, config: JettonMinterConfig) {
+        // TODO: learn how to generate them, set a "correct" one (at least unique)
+        const query_id = 0;
+        // must be aligned with jetton-minter (more specifically: ?, see also https://docs.ton.org/develop/dapps/asset-processing/jettons#retrieving-jetton-data)
+        const content = beginCell()
+            .storeUint(config.metadataType, 8)
+            .storeStringTail(config.metadataUri) // presumably, implements snake data encoding (https://docs.ton.org/develop/dapps/asset-processing/metadata)
+        .endCell();
+        // must be the same as in jetton_factory.rc
+        const operation_deploy_new_jetton = 1;
+        // less than 0.01 is needed for Jetton deploy, so 0.02 is more than enough
+        // TODO: retest after adding other operations
+        const value = toNano('0.02');
+
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            // must be aligned with jetton_factory.rc (see operation_deploy_new_jetton)
+            body: beginCell()
+                .storeUint(operation_deploy_new_jetton, 32)
+                .storeUint(query_id, 64)
+                .storeCoins(config.totalSupply)
+                .storeRef(content)
+            .endCell(),
         });
     }
 }
