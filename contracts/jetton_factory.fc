@@ -43,7 +43,7 @@ slice calculate_minter_address(cell init_state) inline {
             ;; info = header
             .store_uint(0x18, 6)
             .store_slice(calculate_minter_address(init_state))
-            .store_coins(0) ;; in nano; is needed > 0?
+            .store_coins(0)        ;; in nano, for now 0 since mode 64 allows to forward TON from the initial msg
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
 
             ;; init (Maybe (Either StateInit ^StateInit))
@@ -60,7 +60,7 @@ slice calculate_minter_address(cell init_state) inline {
 
         ;; mode 0? mode 64 = carry the remaining value in the new message
         ;; flag 16 = __
-        0 + 16
+        64 + 16
     );
 }
 
