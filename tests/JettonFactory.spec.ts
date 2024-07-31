@@ -1,7 +1,8 @@
-import { Cell, toNano } from '@ton/core';
+import { Cell } from '@ton/core';
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { compile } from '@ton/blueprint';
 import { JettonFactory } from '../wrappers/JettonFactory';
+import { JettonMinter } from '../wrappers/JettonMinter';
 import '@ton/test-utils';
 
 describe('JettonFactory', () => {
@@ -44,4 +45,26 @@ describe('JettonFactory', () => {
         // the check is done inside beforeEach
         // blockchain and jettonFactoryContract are ready to use
     });
+
+    it('should deploy Jetton', async () => {
+        const metadataUri = 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json';
+        const deployResult = await jettonFactoryContract.sendDeployNewJetton(deployer.getSender(), {
+            totalSupply: 0n,
+            metadataType: 1,
+            metadataUri,
+        });
+
+        const minterAddress = JettonMinter.createFromConfig({
+            admin: jettonFactoryContract.address, // not deployer.address!
+            wallet_code: await compile('JettonWallet'),
+            content: JettonMinter.jettonContentToCell({ type: 1, uri: metadataUri }),
+        }, await compile('JettonMinter')).address;
+
+        expect(deployResult.transactions).toHaveTransaction({
+            from: jettonFactoryContract.address,
+            to: minterAddress,
+            oldStatus: 'uninitialized',
+            endStatus: 'active',
+        })
+    })
 });
