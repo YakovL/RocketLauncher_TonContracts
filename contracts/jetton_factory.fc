@@ -91,7 +91,7 @@ const operation_deploy_new_jetton = 1;
     ;; later: maybe load minter_code and wallet_code only when deploying (but always load things like admin_address)
     (cell minter_code, cell wallet_code) = load_data();
 
-    ;; deploy new counter
+    ;; deploy new jetton
     if (operation_type == operation_deploy_new_jetton) {
         ;; this must be aligned with sendDeployNewJetton
         int total_supply = in_msg_body~load_coins();
