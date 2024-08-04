@@ -7,3 +7,5 @@ int op::burn_notification() asm "0x7bdd97de PUSHINT";
 
 ;; Minter
 int op::mint() asm "21 PUSHINT";
+;; for some (or no) reason, hardcoded instead: change_admin, change_content; 
+;; provide_wallet_address and take_wallet_address are defined in discovery-params.fc
