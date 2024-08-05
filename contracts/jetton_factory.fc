@@ -107,6 +107,11 @@ const operation_deploy_new_jetton = 1;
         return ();
     }
 
+    ;; on successful mint (minter sends op::excesses)
+    if (operation_type == op::excesses()) {
+        return ();
+    }
+
     ;; unknown op-code convention, see https://docs.ton.org/learn/tvm-instructions/tvm-exit-codes
     throw(0xffff);
 }
