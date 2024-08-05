@@ -104,5 +104,9 @@ const operation_deploy_new_jetton = 1;
         );
         var jetton_init_state = build_contract_init_state(minter_code, minter_init_data);
         deploy_jetton(jetton_init_state);
+        return ();
     }
+
+    ;; unknown op-code convention, see https://docs.ton.org/learn/tvm-instructions/tvm-exit-codes
+    throw(0xffff);
 }
