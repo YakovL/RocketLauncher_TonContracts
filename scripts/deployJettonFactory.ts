@@ -2,7 +2,13 @@ import { JettonFactory } from '../wrappers/JettonFactory';
 import { compile, NetworkProvider } from '@ton/blueprint';
 
 export async function run(provider: NetworkProvider) {
-    const jettonFactory = provider.open(JettonFactory.createFromConfig({}, await compile('JettonFactory')));
+    const minterCode = await compile('JettonMinter');
+    const walletCode = await compile('JettonWallet');
+
+    const jettonFactory = provider.open(JettonFactory.createFromConfig({
+        minterCode,
+        walletCode,
+    }, await compile('JettonFactory')));
 
     await jettonFactory.sendDeploy(provider.sender(), jettonFactory.estimatedDeployGasPrice);
 

@@ -1,5 +1,130 @@
 #include "imports/stdlib.fc";
 
+;; this must be aligned with the minter's save_data contents (and deployJettonMinter's createFromConfig)
+cell build_minter_init_data(int total_supply, slice admin_address, cell metadata, cell jetton_wallet_code) inline {
+    return begin_cell()
+        .store_coins(total_supply)
+        .store_slice(admin_address)
+        .store_ref(metadata)
+        .store_ref(jetton_wallet_code)
+    .end_cell();
+}
+
+;; taken from https://docs.ton.org/develop/func/cookbook#how-to-build-a-stateinit-cell, tested on counter factory
+cell build_contract_init_state(cell init_code, cell init_data) inline {
+    return begin_cell()
+        .store_uint(0, 1) ;; split_depth:(Maybe (## 5))
+        .store_uint(0, 1) ;; special:(Maybe TickTock)
+        .store_uint(1, 1) ;; (Maybe ^Cell)
+        .store_uint(1, 1) ;; (Maybe ^Cell)
+        .store_uint(0, 1) ;; (HashmapE 256 SimpleLib)
+        .store_ref(init_code)
+        .store_ref(init_data)
+    .end_cell();
+}
+
+;; layout is defined by: https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb#L105
+;; implementation is based on https://docs.ton.org/develop/func/cookbook#generate-internal-address
+;; and https://github.com/ton-blockchain/token-contract/blob/main/ft/jetton-utils.fc, tested on counter factory
+;; not sure if anycast is needed and if other workchain ids will be needed in the future
+slice calculate_minter_address(cell init_state) inline {
+    return begin_cell()
+        .store_uint(2, 2)          ;; addr_std$10
+        .store_uint(0, 1)          ;; anycast nothing
+        .store_int(0, 8)           ;; workchain id = 0 (might need adjustments in the future)
+        .store_uint(cell_hash(init_state), 256)
+    .end_cell()
+    .begin_parse();
+}
+
+() deploy_jetton(cell init_state) impure inline {
+    send_raw_message(
+        begin_cell()
+            ;; info = header
+            .store_uint(0x18, 6)
+            .store_slice(calculate_minter_address(init_state))
+            .store_coins(0)        ;; in nano, for now 0 since mode 64 allows to forward TON from the initial msg
+            .store_uint(0, 1 + 4 + 4 + 64 + 32)
+
+            ;; init (Maybe (Either StateInit ^StateInit))
+            .store_uint(1, 1)      ;; init is non-empty
+            .store_uint(1, 1)      ;; serialized in another cell
+            .store_ref(init_state) ;; ^StateInit
+
+            ;; body
+            .store_uint(0, 1) ;; in-place body (if adding by ref, switch to 1)
+            ;; if non-empty body is needed: either
+            ;; .store_ref(body)  and change ↑ flag or
+            ;; ..how to add an inline body? .store_slice(begin_parse(body)) ?
+        .end_cell(),
+
+        ;; mode 0? mode 64 = carry the remaining value in the new message
+        ;; flag 16 = bounce on action fail
+        64 + 16
+    );
+}
+
+;; copied from minterController's mintAction
+const mint_forward_ton_amount = 50000000;
+const mint_total_ton_amount =  100000000;
+
+() request_mint(
+    slice jetton_address,
+    int amount,
+    slice to_address,
+    int query_id,
+    ;; recieves op::excesses() on success (see https://blog.ton.org/how-to-shard-your-ton-smart-contract-and-why-studying-the-anatomy-of-tons-jettons#user-story-1-alison)
+    slice response_address
+) impure inline {
+    send_raw_message(
+        begin_cell()
+            ;; info = header
+            .store_uint(0x18, 6)
+            .store_slice(jetton_address)
+            .store_coins(mint_total_ton_amount + 15000000) ;; see sendMint
+            .store_uint(0, 1 + 4 + 4 + 64 + 32)
+            .store_uint(0, 1)                              ;; Maybe (StateInitOrRef)
+
+            ;; body (see JettonMinter.mintMessage)
+            .store_uint(0, 1)                              ;; in-place body (Either Body ^Body)
+            .store_uint(op::mint(), 32)
+            .store_uint(query_id, 64)
+            .store_slice(to_address)
+            .store_coins(mint_total_ton_amount)
+            ;; note: minter doesn't seem to read the amount part on op::mint(),
+            ;; but JettonMinter.mintMessage stores it (before ref);
+            ;; not sure if this line is needed at all
+            .store_coins(amount)
+            .store_ref(begin_cell()
+                .store_uint(op::internal_transfer(), 32)
+                .store_uint(0, 64)
+                .store_coins(amount)
+                ;; equivalent of .storeAddress(null) (.store_slice(null) doesn't work; 00 is empty address)
+                .store_uint(0, 2)
+                .store_slice(response_address)
+                .store_coins(mint_forward_ton_amount)
+                ;; equivalent of .storeMaybeRef(null), presumably the same as .store_maybe_ref(null)
+                .store_uint(0, 1)
+            .end_cell())
+        .end_cell(),
+
+        0 + 16
+    );
+}
+
+;; == storage ==
+;; this must be aligned with jettonFactoryConfigToCell
+(
+    cell, ;; minter_code
+    cell  ;; wallet_code
+) load_data() inline {
+    slice ds = get_data().begin_parse();
+    return (
+        ds~load_ref(), ;; minter_code
+        ds~load_ref()  ;; wallet_code
+    );
+}
+
 ;; == messages ==
 const operation_deploy_new_jetton = 1;
 
@@ -10,8 +135,31 @@ const operation_deploy_new_jetton = 1;
     }
 
     int operation_type = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+    ;; later: maybe load minter_code and wallet_code only when deploying (but always load things like admin_address)
+    (cell minter_code, cell wallet_code) = load_data();
 
-    ;; deploy new counter
+    ;; deploy new jetton
     if (operation_type == operation_deploy_new_jetton) {
+        ;; this must be aligned with sendDeployNewJetton
+        int total_supply = in_msg_body~load_coins();
+        cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
+        var minter_init_data = build_minter_init_data(
+            total_supply,
+            my_address(),    ;; set minter's admin_address to address of this contract
+            jetton_metadata,
+            wallet_code
+        );
+        var jetton_init_state = build_contract_init_state(minter_code, minter_init_data);
+        deploy_jetton(jetton_init_state);
+        return ();
     }
+
+    ;; on successful mint (minter sends op::excesses)
+    if (operation_type == op::excesses()) {
+        return ();
+    }
+
+    ;; unknown op-code convention, see https://docs.ton.org/learn/tvm-instructions/tvm-exit-codes
+    throw(0xffff);
 }
