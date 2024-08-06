@@ -59,8 +59,56 @@ slice calculate_minter_address(cell init_state) inline {
         .end_cell(),
 
         ;; mode 0? mode 64 = carry the remaining value in the new message
-        ;; flag 16 = __
+        ;; flag 16 = bounce on action fail
         64 + 16
+    );
+}
+
+;; copied from minterController's mintAction
+const mint_forward_ton_amount = 50000000;
+const mint_total_ton_amount =  100000000;
+
+() request_mint(
+    slice jetton_address,
+    int amount,
+    slice to_address,
+    int query_id,
+    ;; recieves op::excesses() on success (see https://blog.ton.org/how-to-shard-your-ton-smart-contract-and-why-studying-the-anatomy-of-tons-jettons#user-story-1-alison)
+    slice response_address
+) impure inline {
+    send_raw_message(
+        begin_cell()
+            ;; info = header
+            .store_uint(0x18, 6)
+            .store_slice(jetton_address)
+            .store_coins(mint_total_ton_amount + 15000000) ;; see sendMint
+            .store_uint(0, 1 + 4 + 4 + 64 + 32)
+            .store_uint(0, 1)                              ;; Maybe (StateInitOrRef)
+
+            ;; body (see JettonMinter.mintMessage)
+            .store_uint(0, 1)                              ;; in-place body (Either Body ^Body)
+            .store_uint(op::mint(), 32)
+            .store_uint(query_id, 64)
+            .store_slice(to_address)
+            .store_coins(mint_total_ton_amount)
+            ;; note: minter doesn't seem to read the amount part on op::mint(),
+            ;; but JettonMinter.mintMessage stores it (before ref);
+            ;; not sure if this line is needed at all
+            .store_coins(amount)
+            .store_ref(begin_cell()
+                .store_uint(op::internal_transfer(), 32)
+                .store_uint(0, 64)
+                .store_coins(amount)
+                ;; equivalent of .storeAddress(null) (.store_slice(null) doesn't work; 00 is empty address)
+                .store_uint(0, 2)
+                .store_slice(response_address)
+                .store_coins(mint_forward_ton_amount)
+                ;; equivalent of .storeMaybeRef(null), presumably the same as .store_maybe_ref(null)
+                .store_uint(0, 1)
+            .end_cell())
+        .end_cell(),
+
+        0 + 16
     );
 }
 
