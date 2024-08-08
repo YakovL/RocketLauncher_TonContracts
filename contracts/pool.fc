@@ -1,0 +1,27 @@
+;; CPAMM with partial liquidity concentration:
+;; J * (T + T0) = k, only Δk > 0 is allowed,
+;; where J – jetton balance, T – TON balance,
+;; T0 – initial shift (T0 = J_0 * P_min, i.e. initial jetton supply * minimal price),
+;; k = T0 * J0.
+;; Commission is deduced from the sent TON amount (when converting TON → Jetton)
+;; or from the returned TON amount (when converting Jetton → TON).
+
+;; == storage ==
+(
+) load_data() inline {
+    slice ds = get_data().begin_parse();
+    return (
+    );
+}
+
+() save_data(
+) impure inline {
+    set_data(begin_cell()
+    .end_cell());
+}
+
+;; == messages ==
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+}
+
+;; == getters ==
