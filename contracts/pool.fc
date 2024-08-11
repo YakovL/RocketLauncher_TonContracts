@@ -8,15 +8,24 @@
 
 ;; == storage ==
 (
+    int   ;; pool jetton balance (J)
+  , int   ;; pool TON balance (T)
 ) load_data() inline {
     slice ds = get_data().begin_parse();
     return (
+        ;; 2^100 > 10^30, 10^21 with decimals: 9 – more than enough
+        ds~load_uint(100)  ;; pool jetton balance
+      , ds~load_uint(100)  ;; pool TON balance
     );
 }
 
 () save_data(
+    int jetton_balance
+  , int ton_balance
 ) impure inline {
     set_data(begin_cell()
+        .store_uint(jetton_balance, 100)
+        .store_uint(ton_balance, 100)
     .end_cell());
 }
 
@@ -25,3 +34,16 @@
 }
 
 ;; == getters ==
+int jetton_balance() method_id {
+    var (_jetton_balance
+        , _
+    ) = load_data();
+    return _jetton_balance;
+}
+
+int ton_balance() method_id {
+    var (_, _ton_balance
+    ) = load_data();
+    return _ton_balance;
+}
+

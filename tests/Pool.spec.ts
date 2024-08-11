@@ -16,6 +16,7 @@ describe('Pool', () => {
     beforeEach(async () => {
         blockchain = await Blockchain.create();
         const pool = Pool.createFromConfig({
+            poolJettonBalance: 1000_000n,
         }, code);
         poolContract = blockchain.openContract(pool);
 

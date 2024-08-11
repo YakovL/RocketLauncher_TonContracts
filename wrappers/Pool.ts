@@ -4,10 +4,13 @@ import {
 } from '@ton/core';
 
 export type PoolConfig = {
+    poolJettonBalance: bigint // (J0)
 };
 
 export function poolConfigToCell(config: PoolConfig): Cell {
     return beginCell()
+        .storeUint(config.poolJettonBalance, 100)
+        .storeUint(0, 100) // initial ton balance is 0
     .endCell();
 }
 
