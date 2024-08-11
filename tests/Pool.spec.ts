@@ -12,7 +12,30 @@ describe('Pool', () => {
 
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
-    let pool: SandboxContract<Pool>;
+    let poolContract: SandboxContract<Pool>;
     beforeEach(async () => {
+        blockchain = await Blockchain.create();
+        const pool = Pool.createFromConfig({
+        }, code);
+        poolContract = blockchain.openContract(pool);
+
+        deployer = await blockchain.treasury('deployer');
+
+        const deployResult = await poolContract.sendDeploy(
+            deployer.getSender(),
+            pool.estimatedDeployGasPrice
+        );
+
+        expect(deployResult.transactions).toHaveTransaction({
+            from: deployer.address,
+            to: poolContract.address,
+            deploy: true,
+            success: true,
+        });
+    });
+
+    it('should deploy', async () => {
+        // the check is done inside beforeEach
+        // blockchain and pool are ready to use
     });
 });

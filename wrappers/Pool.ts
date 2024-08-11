@@ -1,5 +1,6 @@
 import {
     Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode,
+    toNano,
 } from '@ton/core';
 
 export type PoolConfig = {
@@ -23,6 +24,7 @@ export class Pool implements Contract {
         return new Pool(contractAddress(workchain, init), init);
     }
 
+    estimatedDeployGasPrice = toNano('0.05');
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
         await provider.internal(via, {
             value,
