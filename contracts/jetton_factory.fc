@@ -145,7 +145,7 @@ const operation_deploy_new_jetton = 1;
         int total_supply = in_msg_body~load_coins();
         cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
         var minter_init_data = build_minter_init_data(
-            total_supply,
+            0,
             my_address(),    ;; set minter's admin_address to address of this contract
             jetton_metadata,
             wallet_code
