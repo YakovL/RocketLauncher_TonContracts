@@ -75,13 +75,14 @@ const error_not_allowed_before_initiate = 0xfff1;
 ;; == getters ==
 int jetton_balance() method_id {
     var (_jetton_balance
-        , _
+        , _, _
     ) = load_data();
     return _jetton_balance;
 }
 
 int ton_balance() method_id {
     var (_, _ton_balance
+        , _
     ) = load_data();
     return _ton_balance;
 }
