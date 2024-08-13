@@ -36,7 +36,38 @@
 }
 
 ;; == messages ==
+const operation_initiate = 101;
+
+const error_already_initiated = 0xfff0;
+const error_not_allowed_before_initiate = 0xfff1;
+
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    ;; accept empty messages (sending TON to contract balance)
+    if (in_msg_body.slice_empty?()) {
+        return ();
+    }
+
+    int operation_type = in_msg_body~load_uint(32);
+    var (_jetton_balance
+        , _ton_balance
+        , is_inited
+    ) = load_data();
+
+    ;; handle initiate and attempts to handle other ops before initiation
+    if (operation_type == operation_initiate) {
+        if (~is_inited) {
+            is_inited = 1;
+            save_data(_jetton_balance
+                , _ton_balance
+                , is_inited);
+            return ();
+        } else {
+            throw(error_already_initiated);
+        }
+    }
+    if ((operation_type != operation_initiate) & ~is_inited) {
+        throw(error_not_allowed_before_initiate);
+    }
 }
 
 ;; == getters ==

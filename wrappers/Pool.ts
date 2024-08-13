@@ -34,7 +34,14 @@ export class Pool implements Contract {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: beginCell().endCell(),
+            body: beginCell()
+                .storeUint(this.ops.init, 32)
+            .endCell(),
         });
     }
+
+    ops = {
+        // these must be aligned with pool.rc
+        init: 101,
+    };
 }
