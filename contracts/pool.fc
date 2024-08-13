@@ -56,7 +56,7 @@ const error_not_allowed_before_initiate = 0xfff1;
 
     ;; handle initiate and attempts to handle other ops before initiation
     if (operation_type == operation_initiate) {
-        if (~is_inited) {
+        if (~ is_inited) {
             _jetton_balance = in_msg_body~load_uint(100);
             is_inited = 1;
             save_data(_jetton_balance
@@ -67,7 +67,7 @@ const error_not_allowed_before_initiate = 0xfff1;
             throw(error_already_initiated);
         }
     }
-    if ((operation_type != operation_initiate) & ~is_inited) {
+    if ((operation_type != operation_initiate) & ~ is_inited) {
         throw(error_not_allowed_before_initiate);
     }
 }
