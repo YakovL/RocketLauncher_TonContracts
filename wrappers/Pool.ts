@@ -7,10 +7,12 @@ export type PoolConfig = {
     poolJettonBalance: bigint // (J0)
 };
 
+// must be aligned with load_data, save_data in pool.rc
 export function poolConfigToCell(config: PoolConfig): Cell {
     return beginCell()
         .storeUint(config.poolJettonBalance, 100)
         .storeUint(0, 100) // initial ton balance is 0
+        .storeUint(0, 1)   // is_inited: false
     .endCell();
 }
 
