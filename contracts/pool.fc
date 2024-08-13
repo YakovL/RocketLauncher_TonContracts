@@ -48,6 +48,7 @@ const error_not_allowed_before_initiate = 0xfff1;
     }
 
     int operation_type = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
     var (_jetton_balance
         , _ton_balance
         , is_inited
@@ -56,6 +57,7 @@ const error_not_allowed_before_initiate = 0xfff1;
     ;; handle initiate and attempts to handle other ops before initiation
     if (operation_type == operation_initiate) {
         if (~is_inited) {
+            _jetton_balance = in_msg_body~load_uint(100);
             is_inited = 1;
             save_data(_jetton_balance
                 , _ton_balance

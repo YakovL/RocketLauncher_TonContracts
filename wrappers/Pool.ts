@@ -3,18 +3,12 @@ import {
     toNano,
 } from '@ton/core';
 
-export type PoolConfig = {
+export type PoolConfigAddressDefining = {
+};
+export type PoolInitConfig = {
     poolJettonBalance: bigint // (J0)
 };
-
-// must be aligned with load_data, save_data in pool.rc
-export function poolConfigToCell(config: PoolConfig): Cell {
-    return beginCell()
-        .storeUint(config.poolJettonBalance, 100)
-        .storeUint(0, 100) // initial ton balance is 0
-        .storeUint(0, 1)   // is_inited: false
-    .endCell();
-}
+export type PoolConfig = PoolConfigAddressDefining & PoolInitConfig;
 
 export class Pool implements Contract {
     constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {}
@@ -23,19 +17,32 @@ export class Pool implements Contract {
         return new Pool(address);
     }
 
-    static createFromConfig(config: PoolConfig, code: Cell, workchain = 0) {
-        const data = poolConfigToCell(config);
+    // must be aligned with load_data, save_data in pool.rc
+    static poolConfigToCell(config: PoolConfigAddressDefining): Cell {
+        return beginCell()
+            .storeUint(0, 100) // placeholder: jetton_balance
+            .storeUint(0, 100) // initial ton balance is 0
+            .storeUint(0, 1)   // is_inited: false
+        .endCell();
+    }
+
+    static createFromConfig(config: PoolConfigAddressDefining, code: Cell, workchain = 0) {
+        const data = this.poolConfigToCell(config);
         const init = { code, data };
         return new Pool(contractAddress(workchain, init), init);
     }
 
     estimatedDeployGasPrice = toNano('0.05');
-    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
+    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, initConfig: PoolInitConfig) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
                 .storeUint(this.ops.init, 32)
+                .storeUint(0, 64)  // empty query_id
+
+                // must be aligned with parsing ops.init in pool.rc
+                .storeUint(initConfig.poolJettonBalance, 100)
             .endCell(),
         });
     }

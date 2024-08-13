@@ -16,7 +16,6 @@ describe('Pool', () => {
     beforeEach(async () => {
         blockchain = await Blockchain.create();
         const pool = Pool.createFromConfig({
-            poolJettonBalance: 1000_000n,
         }, code);
         poolContract = blockchain.openContract(pool);
 
@@ -24,7 +23,10 @@ describe('Pool', () => {
 
         const deployResult = await poolContract.sendDeploy(
             deployer.getSender(),
-            pool.estimatedDeployGasPrice
+            pool.estimatedDeployGasPrice,
+            {
+                poolJettonBalance: 1000_000n,
+            }
         );
 
         expect(deployResult.transactions).toHaveTransaction({
