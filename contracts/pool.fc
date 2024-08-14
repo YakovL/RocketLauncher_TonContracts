@@ -19,7 +19,7 @@
   , int   ;; T0
   , int   ;; FEE_PER_MILLE
   , slice ;; FACTORY_ADDRESS
-  , int   ;; is_inited
+  , int   ;; IS_INITED
 ) load_data() inline {
     slice ds = get_data().begin_parse();
     return (
@@ -31,7 +31,7 @@
       , ds~load_uint(100)  ;; T0
       , ds~load_uint(10)   ;; FEE_PER_MILLE
       , ds~load_msg_addr() ;; FACTORY_ADDRESS
-      , ds~load_uint(1)    ;; is_inited
+      , ds~load_uint(1)    ;; IS_INITED
     );
 }
 
@@ -44,7 +44,7 @@
   , int T0
   , int FEE_PER_MILLE
   , slice FACTORY_ADDRESS
-  , int is_inited
+  , int IS_INITED
 ) impure inline {
     set_data(begin_cell()
         .store_ref(JETTON_METADATA)
@@ -53,7 +53,7 @@
         .store_uint(T0, 100)
         .store_uint(FEE_PER_MILLE, 10)
         .store_slice(FACTORY_ADDRESS)
-        .store_uint(is_inited, 1)
+        .store_uint(IS_INITED, 1)
     .end_cell());
 }
 
@@ -77,30 +77,30 @@ const error_not_allowed_before_initiate = 0xfff1;
         , T0
         , FEE_PER_MILLE
         , FACTORY_ADDRESS
-        , is_inited
+        , IS_INITED
     ) = load_data();
 
     ;; handle initiate and attempts to handle other ops before initiation
     if (operation_type == operation_initiate) {
-        if (~ is_inited) {
+        if (~ IS_INITED) {
             _jetton_balance = in_msg_body~load_uint(100);
             T0 = in_msg_body~load_uint(100);
             FEE_PER_MILLE = in_msg_body~load_uint(10);
             FACTORY_ADDRESS = in_msg_body~load_msg_addr();
-            is_inited = 1;
+            IS_INITED = 1;
             save_data(JETTON_METADATA,
                   _jetton_balance
                 , _ton_balance
                 , T0
                 , FEE_PER_MILLE
                 , FACTORY_ADDRESS
-                , is_inited);
+                , IS_INITED);
             return ();
         } else {
             throw(error_already_initiated);
         }
     }
-    if ((operation_type != operation_initiate) & ~ is_inited) {
+    if ((operation_type != operation_initiate) & ~ IS_INITED) {
         throw(error_not_allowed_before_initiate);
     }
 }
