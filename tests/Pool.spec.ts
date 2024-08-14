@@ -26,6 +26,7 @@ describe('Pool', () => {
             pool.estimatedDeployGasPrice,
             {
                 poolJettonBalance: 1000_000n,
+                factoryAddress: deployer.address, // should be factory address in case of deployment by factory
             }
         );
 

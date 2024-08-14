@@ -7,6 +7,7 @@ export type PoolConfigAddressDefining = {
 };
 export type PoolInitConfig = {
     poolJettonBalance: bigint // (J0)
+    factoryAddress:    Address
 };
 export type PoolConfig = PoolConfigAddressDefining & PoolInitConfig;
 
@@ -22,6 +23,7 @@ export class Pool implements Contract {
         return beginCell()
             .storeUint(0, 100) // placeholder: jetton_balance
             .storeUint(0, 100) // initial ton balance is 0
+            .storeUint(0, 2)   // placeholder: factory address
             .storeUint(0, 1)   // is_inited: false
         .endCell();
     }

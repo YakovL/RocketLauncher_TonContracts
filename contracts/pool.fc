@@ -11,6 +11,7 @@
 (
     int   ;; pool jetton balance (J)
   , int   ;; pool TON balance (T)
+  , slice ;; FACTORY_ADDRESS
   , int   ;; is_inited
 ) load_data() inline {
     slice ds = get_data().begin_parse();
@@ -18,6 +19,7 @@
         ;; 2^100 > 10^30, 10^21 with decimals: 9 – more than enough
         ds~load_uint(100)  ;; pool jetton balance
       , ds~load_uint(100)  ;; pool TON balance
+      , ds~load_msg_addr() ;; FACTORY_ADDRESS
       , ds~load_uint(1)    ;; is_inited
     );
 }
@@ -26,11 +28,13 @@
 () save_data(
     int jetton_balance
   , int ton_balance
+  , slice FACTORY_ADDRESS
   , int is_inited
 ) impure inline {
     set_data(begin_cell()
         .store_uint(jetton_balance, 100)
         .store_uint(ton_balance, 100)
+        .store_slice(FACTORY_ADDRESS)
         .store_uint(is_inited, 1)
     .end_cell());
 }
@@ -51,6 +55,7 @@ const error_not_allowed_before_initiate = 0xfff1;
     int query_id = in_msg_body~load_uint(64);
     var (_jetton_balance
         , _ton_balance
+        , FACTORY_ADDRESS
         , is_inited
     ) = load_data();
 
@@ -61,6 +66,7 @@ const error_not_allowed_before_initiate = 0xfff1;
             is_inited = 1;
             save_data(_jetton_balance
                 , _ton_balance
+                , FACTORY_ADDRESS
                 , is_inited);
             return ();
         } else {
@@ -75,14 +81,14 @@ const error_not_allowed_before_initiate = 0xfff1;
 ;; == getters ==
 int jetton_balance() method_id {
     var (_jetton_balance
-        , _, _
+        , _, _, _
     ) = load_data();
     return _jetton_balance;
 }
 
 int ton_balance() method_id {
     var (_, _ton_balance
-        , _
+        , _, _
     ) = load_data();
     return _ton_balance;
 }
