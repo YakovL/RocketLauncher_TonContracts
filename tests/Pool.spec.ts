@@ -32,6 +32,7 @@ describe('Pool', () => {
             pool.estimatedDeployGasPrice,
             {
                 poolJettonBalance: 1000_000n,
+                feePerMille: 5,
                 factoryAddress: deployer.address, // should be factory address in case of deployment by factory
             }
         );
