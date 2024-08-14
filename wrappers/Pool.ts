@@ -8,6 +8,7 @@ export type PoolConfigAddressDefining = {
 };
 export type PoolInitConfig = {
     poolJettonBalance: bigint // (J0)
+    minimalPrice:      bigint
     feePerMille:       number
     factoryAddress:    Address
 };
@@ -26,6 +27,7 @@ export class Pool implements Contract {
             .storeRef(config.poolJettonContent)
             .storeUint(0, 100) // placeholder: jetton_balance
             .storeUint(0, 100) // initial ton balance is 0
+            .storeUint(0, 100) // placeholder: T0
             .storeUint(0, 10)  // placeholder: FEE_PER_MILLE
             .storeUint(0, 2)   // placeholder: FACTORY_ADDRESS
             .storeUint(0, 1)   // is_inited: false
@@ -49,6 +51,7 @@ export class Pool implements Contract {
 
                 // must be aligned with parsing ops.init in pool.rc
                 .storeUint(initConfig.poolJettonBalance, 100)
+                .storeUint(initConfig.poolJettonBalance * initConfig.minimalPrice, 100) // T0
                 .storeUint(initConfig.feePerMille, 10)
                 .storeAddress(initConfig.factoryAddress)
             .endCell(),

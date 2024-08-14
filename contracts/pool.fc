@@ -16,6 +16,7 @@
     ;; set during initiate
     int   ;; pool jetton balance (J)
   , int   ;; pool TON balance (T)
+  , int   ;; T0
   , int   ;; FEE_PER_MILLE
   , slice ;; FACTORY_ADDRESS
   , int   ;; is_inited
@@ -27,6 +28,7 @@
         ;; 2^100 > 10^30, 10^21 with decimals: 9 – more than enough
         ds~load_uint(100)  ;; pool jetton balance
       , ds~load_uint(100)  ;; pool TON balance
+      , ds~load_uint(100)  ;; T0
       , ds~load_uint(10)   ;; FEE_PER_MILLE
       , ds~load_msg_addr() ;; FACTORY_ADDRESS
       , ds~load_uint(1)    ;; is_inited
@@ -39,6 +41,7 @@
 
     int jetton_balance
   , int ton_balance
+  , int T0
   , int FEE_PER_MILLE
   , slice FACTORY_ADDRESS
   , int is_inited
@@ -47,6 +50,7 @@
         .store_ref(JETTON_METADATA)
         .store_uint(jetton_balance, 100)
         .store_uint(ton_balance, 100)
+        .store_uint(T0, 100)
         .store_uint(FEE_PER_MILLE, 10)
         .store_slice(FACTORY_ADDRESS)
         .store_uint(is_inited, 1)
@@ -70,6 +74,7 @@ const error_not_allowed_before_initiate = 0xfff1;
     var (JETTON_METADATA,
           _jetton_balance
         , _ton_balance
+        , T0
         , FEE_PER_MILLE
         , FACTORY_ADDRESS
         , is_inited
@@ -79,12 +84,14 @@ const error_not_allowed_before_initiate = 0xfff1;
     if (operation_type == operation_initiate) {
         if (~ is_inited) {
             _jetton_balance = in_msg_body~load_uint(100);
+            T0 = in_msg_body~load_uint(100);
             FEE_PER_MILLE = in_msg_body~load_uint(10);
             FACTORY_ADDRESS = in_msg_body~load_msg_addr();
             is_inited = 1;
             save_data(JETTON_METADATA,
                   _jetton_balance
                 , _ton_balance
+                , T0
                 , FEE_PER_MILLE
                 , FACTORY_ADDRESS
                 , is_inited);
@@ -101,14 +108,14 @@ const error_not_allowed_before_initiate = 0xfff1;
 ;; == getters ==
 int jetton_balance() method_id {
     var (_, _jetton_balance
-        , _, _, _, _
+        , _, _, _, _, _
     ) = load_data();
     return _jetton_balance;
 }
 
 int ton_balance() method_id {
     var (_, _, _ton_balance
-        , _, _, _
+        , _, _, _, _
     ) = load_data();
     return _ton_balance;
 }
