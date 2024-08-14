@@ -1,3 +1,5 @@
+#include "imports/stdlib.fc";
+
 ;; CPAMM with partial liquidity concentration:
 ;; J * (T + T0) = k, only Δk > 0 is allowed,
 ;; where J – jetton balance, T – TON balance,
