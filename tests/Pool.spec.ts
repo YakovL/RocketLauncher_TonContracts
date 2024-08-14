@@ -5,6 +5,11 @@ import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 
 describe('Pool', () => {
+    const jettonMinterContent = {
+        type: 1,
+        uri: '',
+    } as Parameters<typeof JettonMinter.jettonContentToCell>[0];
+
     let code: Cell;
     beforeAll(async () => {
         code = await compile('Pool');
@@ -16,6 +21,7 @@ describe('Pool', () => {
     beforeEach(async () => {
         blockchain = await Blockchain.create();
         const pool = Pool.createFromConfig({
+            poolJettonContent: JettonMinter.jettonContentToCell(jettonMinterContent)
         }, code);
         poolContract = blockchain.openContract(pool);
 

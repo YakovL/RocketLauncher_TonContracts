@@ -4,6 +4,7 @@ import {
 } from '@ton/core';
 
 export type PoolConfigAddressDefining = {
+    poolJettonContent: Cell // JETTON_METADATA in pool.rc
 };
 export type PoolInitConfig = {
     poolJettonBalance: bigint // (J0)
@@ -21,6 +22,7 @@ export class Pool implements Contract {
     // must be aligned with load_data, save_data in pool.rc
     static poolConfigToCell(config: PoolConfigAddressDefining): Cell {
         return beginCell()
+            .storeRef(config.poolJettonContent)
             .storeUint(0, 100) // placeholder: jetton_balance
             .storeUint(0, 100) // initial ton balance is 0
             .storeUint(0, 2)   // placeholder: factory address
