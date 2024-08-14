@@ -63,6 +63,7 @@ const error_not_allowed_before_initiate = 0xfff1;
     if (operation_type == operation_initiate) {
         if (~ is_inited) {
             _jetton_balance = in_msg_body~load_uint(100);
+            FACTORY_ADDRESS = in_msg_body~load_msg_addr();
             is_inited = 1;
             save_data(_jetton_balance
                 , _ton_balance

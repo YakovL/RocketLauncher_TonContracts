@@ -45,6 +45,7 @@ export class Pool implements Contract {
 
                 // must be aligned with parsing ops.init in pool.rc
                 .storeUint(initConfig.poolJettonBalance, 100)
+                .storeAddress(initConfig.factoryAddress)
             .endCell(),
         });
     }
