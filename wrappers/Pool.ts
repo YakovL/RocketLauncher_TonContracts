@@ -7,10 +7,11 @@ export type PoolConfigAddressDefining = {
     poolJettonContent: Cell // JETTON_METADATA in pool.rc
 };
 export type PoolInitConfig = {
-    poolJettonBalance: bigint // (J0)
-    minimalPrice:      bigint
-    feePerMille:       number
-    factoryAddress:    Address
+    poolJettonBalance:   bigint // (J0)
+    minimalPrice:        bigint
+    feePerMille:         number
+    factoryAddress:      Address
+    jettonWalletAddress: Address
 };
 export type PoolConfig = PoolConfigAddressDefining & PoolInitConfig;
 
@@ -30,6 +31,7 @@ export class Pool implements Contract {
             .storeUint(0, 100) // placeholder: T0
             .storeUint(0, 10)  // placeholder: FEE_PER_MILLE
             .storeUint(0, 2)   // placeholder: FACTORY_ADDRESS
+            .storeUint(0, 2)   // placeholder: POOL_JETTON_WALLET_ADDRESS
             .storeUint(0, 1)   // IS_INITED: false
         .endCell();
     }
@@ -54,6 +56,7 @@ export class Pool implements Contract {
                 .storeUint(initConfig.poolJettonBalance * initConfig.minimalPrice, 100) // T0
                 .storeUint(initConfig.feePerMille, 10)
                 .storeAddress(initConfig.factoryAddress)
+                .storeAddress(initConfig.jettonWalletAddress)
             .endCell(),
         });
     }

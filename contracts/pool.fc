@@ -11,14 +11,17 @@
 ;; == storage ==
 ;; must be aligned with save_data, poolConfigToCell
 (
-    ;; address-defining
+    ;; -- address-defining --
     cell, ;; JETTON_METADATA (defines minter address and can be passed to factory for further deploy)
-    ;; set during initiate
+    ;; -- set during initiate --
     int   ;; pool jetton balance (J)
   , int   ;; pool TON balance (T)
   , int   ;; T0
   , int   ;; FEE_PER_MILLE
   , slice ;; FACTORY_ADDRESS
+    ;; although this may be deduced from JETTON_METADATA, that would require extra code and passing
+    ;; jetton_minter_code and jetton_wallet_code from factory, so passing just this is leaner
+  , slice ;; POOL_JETTON_WALLET_ADDRESS
   , int   ;; IS_INITED
 ) load_data() inline {
     slice ds = get_data().begin_parse();
@@ -31,11 +34,13 @@
       , ds~load_uint(100)  ;; T0
       , ds~load_uint(10)   ;; FEE_PER_MILLE
       , ds~load_msg_addr() ;; FACTORY_ADDRESS
+      , ds~load_msg_addr() ;; POOL_JETTON_WALLET_ADDRESS
       , ds~load_uint(1)    ;; IS_INITED
     );
 }
 
 ;; must be aligned with load_data, poolConfigToCell
+;; only lower-case bits are supposed to be updatable
 () save_data(
     cell JETTON_METADATA,
 
@@ -44,6 +49,7 @@
   , int T0
   , int FEE_PER_MILLE
   , slice FACTORY_ADDRESS
+  , slice POOL_JETTON_WALLET_ADDRESS
   , int IS_INITED
 ) impure inline {
     set_data(begin_cell()
@@ -53,6 +59,7 @@
         .store_uint(T0, 100)
         .store_uint(FEE_PER_MILLE, 10)
         .store_slice(FACTORY_ADDRESS)
+        .store_slice(POOL_JETTON_WALLET_ADDRESS)
         .store_uint(IS_INITED, 1)
     .end_cell());
 }
@@ -77,6 +84,7 @@ const error_not_allowed_before_initiate = 0xfff1;
         , T0
         , FEE_PER_MILLE
         , FACTORY_ADDRESS
+        , POOL_JETTON_WALLET_ADDRESS
         , IS_INITED
     ) = load_data();
 
@@ -87,6 +95,7 @@ const error_not_allowed_before_initiate = 0xfff1;
             T0 = in_msg_body~load_uint(100);
             FEE_PER_MILLE = in_msg_body~load_uint(10);
             FACTORY_ADDRESS = in_msg_body~load_msg_addr();
+            POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
             IS_INITED = 1;
             save_data(JETTON_METADATA,
                   _jetton_balance
@@ -94,6 +103,7 @@ const error_not_allowed_before_initiate = 0xfff1;
                 , T0
                 , FEE_PER_MILLE
                 , FACTORY_ADDRESS
+                , POOL_JETTON_WALLET_ADDRESS
                 , IS_INITED);
             return ();
         } else {
@@ -108,14 +118,14 @@ const error_not_allowed_before_initiate = 0xfff1;
 ;; == getters ==
 int jetton_balance() method_id {
     var (_, _jetton_balance
-        , _, _, _, _, _
+        , _, _, _, _, _, _
     ) = load_data();
     return _jetton_balance;
 }
 
 int ton_balance() method_id {
     var (_, _, _ton_balance
-        , _, _, _, _
+        , _, _, _, _, _
     ) = load_data();
     return _ton_balance;
 }
