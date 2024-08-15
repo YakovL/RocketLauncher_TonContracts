@@ -111,7 +111,7 @@ const error_not_allowed_before_initiate = 0xfff1;
             throw(error_already_initiated);
         }
     }
-    if ((operation_type != operation_initiate) & ~ IS_INITED) {
+    if ((operation_type != operation_initiate) & IS_INITED != 1) {
         throw(error_not_allowed_before_initiate);
     }
 }
