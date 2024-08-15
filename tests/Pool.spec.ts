@@ -5,6 +5,7 @@ import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 
 describe('Pool', () => {
+    const initPoolJettonBalance = 1000_000n;
     const jettonMinterContent = {
         type: 1,
         uri: '',
@@ -20,18 +21,17 @@ describe('Pool', () => {
     let poolContract: SandboxContract<Pool>;
     beforeEach(async () => {
         blockchain = await Blockchain.create();
+        deployer = await blockchain.treasury('deployer');
         const pool = Pool.createFromConfig({
             poolJettonContent: JettonMinter.jettonContentToCell(jettonMinterContent)
         }, code);
         poolContract = blockchain.openContract(pool);
 
-        deployer = await blockchain.treasury('deployer');
-
         const deployResult = await poolContract.sendDeploy(
             deployer.getSender(),
             pool.estimatedDeployGasPrice,
             {
-                poolJettonBalance: 1000_000n,
+                poolJettonBalance: initPoolJettonBalance,
                 minimalPrice: 1000_000n,
                 feePerMille: 5,
                 factoryAddress: deployer.address,      // should be factory address in case of deployment by factory
@@ -51,4 +51,8 @@ describe('Pool', () => {
         // the check is done inside beforeEach
         // blockchain and pool are ready to use
     });
+
+    it('should allow to buy jettons', async () => {
+        throw 'todo: implement'
+    })
 });

@@ -9,7 +9,7 @@
 ;; or from the returned TON amount (when converting Jetton → TON).
 
 ;; == storage ==
-;; must be aligned with save_data, poolConfigToCell
+;; must be aligned with save_data, poolConfigToCell, handling operation_initiate
 (
     ;; -- address-defining --
     cell, ;; JETTON_METADATA (defines minter address and can be passed to factory for further deploy)
@@ -39,7 +39,7 @@
     );
 }
 
-;; must be aligned with load_data, poolConfigToCell
+;; must be aligned with load_data, poolConfigToCell, handling operation_initiate
 ;; only lower-case bits are supposed to be updatable
 () save_data(
     cell JETTON_METADATA,
@@ -91,6 +91,7 @@ const error_not_allowed_before_initiate = 0xfff1;
     ;; handle initiate and attempts to handle other ops before initiation
     if (operation_type == operation_initiate) {
         if (~ IS_INITED) {
+            ;; the parsing must be aligned with sendDeploy
             _jetton_balance = in_msg_body~load_uint(100);
             T0 = in_msg_body~load_uint(100);
             FEE_PER_MILLE = in_msg_body~load_uint(10);
