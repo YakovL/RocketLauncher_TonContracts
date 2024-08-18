@@ -15,8 +15,12 @@ describe('Pool', () => {
     } as Parameters<typeof JettonMinter.jettonContentToCell>[0];
 
     let code: Cell;
+    let minterCode: Cell;
+    let walletCode: Cell;
     beforeAll(async () => {
         code = await compile('Pool');
+        minterCode = await compile('JettonMinter');
+        walletCode = await compile('JettonWallet');
     });
 
     let blockchain: Blockchain;
@@ -30,8 +34,8 @@ describe('Pool', () => {
         const minter = JettonMinter.createFromConfig({
             admin: deployer.address,
             content: JettonMinter.jettonContentToCell(jettonMinterContent),
-            wallet_code: await compile('JettonWallet'),
-        }, await compile('JettonMinter'));
+            wallet_code: walletCode,
+        }, minterCode);
         minterContract = blockchain.openContract(minter);
 
         const deployMinterResult = await minterContract.sendDeploy(
