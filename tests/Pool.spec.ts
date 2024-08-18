@@ -27,6 +27,7 @@ describe('Pool', () => {
     let deployer: SandboxContract<TreasuryContract>;
     let poolContract: SandboxContract<Pool>;
     let minterContract: SandboxContract<JettonMinter>;
+    let poolJettonWalletAddress: Address;
     beforeEach(async () => {
         blockchain = await Blockchain.create();
         deployer = await blockchain.treasury('deployer');
@@ -47,6 +48,17 @@ describe('Pool', () => {
         }, code);
         poolContract = blockchain.openContract(pool);
 
+        const mintResult = await minterContract.sendMint(
+            deployer.getSender(),
+            poolContract.address, initPoolJettonBalance,
+            50_000_000n, // TODO: estimate and set correct forward_ton_amount
+            60_000_000n  // TODO: estimate and set correct total_ton_amount
+        );
+        const walletCreatedEvent = mintResult.events.find(e => e.type === 'account_created');
+        expect(walletCreatedEvent).toBeTruthy();
+        poolJettonWalletAddress = (walletCreatedEvent as { account: Address }).account;
+        expect(Address.isAddress(poolJettonWalletAddress)).toBeTruthy();
+
         const deployResult = await poolContract.sendDeploy(
             deployer.getSender(),
             pool.estimatedDeployGasPrice,
@@ -55,7 +67,7 @@ describe('Pool', () => {
                 minimalPrice: jettonMinPrice,
                 feePerMille,
                 factoryAddress: deployer.address,      // should be factory address in case of deployment by factory
-                jettonWalletAddress: deployer.address, // should be wallet address in case of deployment by factory
+                jettonWalletAddress: poolJettonWalletAddress,
             }
         );
 
