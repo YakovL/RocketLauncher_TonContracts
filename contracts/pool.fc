@@ -119,6 +119,7 @@ int get_ton_amount_for_jetton(int jetton_amount, int jetton_balance, int ton_bal
 
 ;; == messages ==
 const operation_initiate = 101;
+const operation_buy_jetton = 1;
 
 const error_already_initiated = 0xfff0;
 const error_not_allowed_before_initiate = 0xfff1;
@@ -167,6 +168,13 @@ const error_not_allowed_before_initiate = 0xfff1;
     if ((operation_type != operation_initiate) & IS_INITED != 1) {
         throw(error_not_allowed_before_initiate);
     }
+
+    if (operation_type == operation_buy_jetton) {
+        return ();
+    }
+
+    ;; unknown op-code convention, see https://docs.ton.org/learn/tvm-instructions/tvm-exit-codes
+    throw(0xffff);
 }
 
 ;; == getters ==

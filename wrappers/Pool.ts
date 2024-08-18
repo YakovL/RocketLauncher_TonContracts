@@ -64,5 +64,17 @@ export class Pool implements Contract {
     ops = {
         // these must be aligned with pool.rc
         init: 101,
+        buyJetton: 1,
     };
+
+    async sendBuyJetton(provider: ContractProvider, via: Sender,
+        value: bigint
+    ) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+            .endCell(),
+        });
+    }
 }
