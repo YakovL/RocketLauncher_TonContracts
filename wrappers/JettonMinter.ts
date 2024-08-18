@@ -42,6 +42,7 @@ export class JettonMinter implements Contract {
         return new JettonMinter(contractAddress(workchain, init), init);
     }
 
+    estimatedDeployGasPrice = toNano('0.05');
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
         await provider.internal(via, {
             value,

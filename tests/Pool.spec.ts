@@ -1,6 +1,7 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { Cell } from '@ton/core';
 import { Pool } from '../wrappers/Pool';
+import { JettonMinter } from '../wrappers/JettonMinter';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 
@@ -21,9 +22,22 @@ describe('Pool', () => {
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
     let poolContract: SandboxContract<Pool>;
+    let minterContract: SandboxContract<JettonMinter>;
     beforeEach(async () => {
         blockchain = await Blockchain.create();
         deployer = await blockchain.treasury('deployer');
+
+        const minter = JettonMinter.createFromConfig({
+            admin: deployer.address,
+            content: JettonMinter.jettonContentToCell(jettonMinterContent),
+            wallet_code: await compile('JettonWallet'),
+        }, await compile('JettonMinter'));
+        minterContract = blockchain.openContract(minter);
+
+        const deployMinterResult = await minterContract.sendDeploy(
+            deployer.getSender(),
+            minter.estimatedDeployGasPrice
+        );
         const pool = Pool.createFromConfig({
             poolJettonContent: JettonMinter.jettonContentToCell(jettonMinterContent)
         }, code);
