@@ -6,6 +6,8 @@ import { compile } from '@ton/blueprint';
 
 describe('Pool', () => {
     const initPoolJettonBalance = 1000_000n;
+    const jettonMinPrice = 1000_000n;
+    const feePerMille = 5;
     const jettonMinterContent = {
         type: 1,
         uri: '',
@@ -32,8 +34,8 @@ describe('Pool', () => {
             pool.estimatedDeployGasPrice,
             {
                 poolJettonBalance: initPoolJettonBalance,
-                minimalPrice: 1000_000n,
-                feePerMille: 5,
+                minimalPrice: jettonMinPrice,
+                feePerMille,
                 factoryAddress: deployer.address,      // should be factory address in case of deployment by factory
                 jettonWalletAddress: deployer.address, // should be wallet address in case of deployment by factory
             }
