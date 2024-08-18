@@ -65,6 +65,15 @@
 }
 
 ;; == helpers ==
+;; doesn't account the fee – should be deduced before (ton_amount = amount_sent - fee)
+int get_jetton_amount_for_ton(int ton_amount, int jetton_balance, int ton_balance, int T0) inline {
+    return ton_amount * jetton_balance / (ton_balance + T0 + ton_amount);
+}
+;; doesn't account the fee – should be deduced from the returned value
+int get_ton_amount_for_jetton(int jetton_amount, int jetton_balance, int ton_balance, int T0) inline {
+    return jetton_amount * (ton_balance + T0) / (jetton_balance + jetton_amount);
+}
+
 () send_jetton(
     slice to_address
   , int jetton_amount
