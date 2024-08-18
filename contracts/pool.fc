@@ -64,6 +64,50 @@
     .end_cell());
 }
 
+;; == helpers ==
+() send_jetton(
+    slice to_address
+  , int jetton_amount
+  , slice pool_jetton_wallet_address
+  , int query_id
+  , slice response_address
+  , int send_value
+) impure inline {
+    ;; TODO: estimate this better, explain source of truth (toNano('0.05') is used in JettonWallet.spec with forwardPayload: null)
+    int forward_amount = 50000000;
+
+    ;; based on JettonWallet.sendTransfer (uses SendMode.PAY_GAS_SEPARATELY)
+    send_raw_message(
+        begin_cell()
+            ;; info = header
+            .store_uint(0x18, 6)
+            .store_slice(pool_jetton_wallet_address)
+            ;; TODO learn if this should be  send_value - forward_amount  instead
+            .store_coins(send_value)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32)
+
+            ;; init (Maybe (Either StateInit ^StateInit))
+            .store_uint(0, 1) ;; init is empty
+
+            ;; body by ref (too big to be inline)
+            .store_uint(1, 1) ;; body by ref (Either ..)
+            .store_ref(begin_cell()
+                .store_uint(op::transfer(), 32)
+                .store_uint(query_id, 64)
+                .store_coins(jetton_amount)
+                .store_slice(to_address)
+                .store_slice(response_address)
+                .store_uint(0, 1)            ;; .storeMaybeRef(customPayload: Cell | null) – null in all JettonWallet.spec
+                .store_coins(forward_amount) ;; for the rest of txs
+                .store_uint(0, 1)            ;; .storeMaybeRef(forwardPayload: Cell | null)
+            .end_cell())
+        .end_cell(),
+
+        ;; mode and flags
+        0 + 16
+    );
+}
+
 ;; == messages ==
 const operation_initiate = 101;
 
