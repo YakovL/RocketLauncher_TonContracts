@@ -2,6 +2,7 @@ import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { Cell, Address } from '@ton/core';
 import { Pool } from '../wrappers/Pool';
 import { JettonMinter } from '../wrappers/JettonMinter';
+import { JettonWallet } from '../wrappers/JettonWallet';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 
@@ -86,6 +87,22 @@ describe('Pool', () => {
 
     it('should allow to buy jettons', async () => {
         throw 'todo: implement'
+    });
+
+    it('should sell jettons by increasing price', async () => {
+        const sendAmount = 1000_000_000n;
+        const firstBuyResult = await poolContract.sendBuyJetton(deployer.getSender(), sendAmount);
+
+        const walletCreatedEvent = firstBuyResult.events.find(e => e.type === 'account_created');
+        const deployerJettonWalletAddress = (walletCreatedEvent as { account: Address }).account;
+        const deployerJettonWallet = JettonWallet.createFromAddress(deployerJettonWalletAddress);
+        const deployerJettonWalletContract = blockchain.openContract(deployerJettonWallet);
+        const balanceAfterFirstBuy = await deployerJettonWalletContract.getJettonBalance();
+
+        await poolContract.sendBuyJetton(deployer.getSender(), sendAmount);
+        const balanceAfterSecondBuy = await deployerJettonWalletContract.getJettonBalance();
+
+        expect(balanceAfterSecondBuy - balanceAfterFirstBuy).toBeLessThan(balanceAfterFirstBuy);
     });
 
     it('should increase its ton_balance by no less than its balance is actually increased, plus fee', async () => {
