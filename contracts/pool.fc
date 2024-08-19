@@ -133,6 +133,10 @@ const fee_buy_jetton_tx = 2500000; ;; computation fees etc, estimated from tests
         return ();
     }
 
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    slice sender_address = cs~load_msg_addr();
+
     int operation_type = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
     var (JETTON_METADATA,
@@ -174,6 +178,9 @@ const fee_buy_jetton_tx = 2500000; ;; computation fees etc, estimated from tests
 
     if (operation_type == operation_buy_jetton) {
         int available_ton_amount = msg_value - fee_buy_jetton_forward - fee_buy_jetton_tx;
+
+        int effective_ton_amount = available_ton_amount - available_ton_amount * FEE_PER_MILLE ^/ 1000;
+        int jetton_amount_to_send = get_jetton_amount_for_ton(effective_ton_amount, _jetton_balance, _ton_balance, T0);
         return ();
     }
 
