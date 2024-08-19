@@ -70,10 +70,14 @@ export class Pool implements Contract {
     async sendBuyJetton(provider: ContractProvider, via: Sender,
         value: bigint
     ) {
+        const query_id = 0;
+
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
+                .storeUint(this.ops.buyJetton, 32)
+                .storeUint(query_id, 64)
             .endCell(),
         });
     }

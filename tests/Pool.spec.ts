@@ -12,7 +12,7 @@ describe('Pool', () => {
     const feePerMille = 5;
     const jettonMinterContent = {
         type: 1,
-        uri: '',
+        uri: 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json',
     } as Parameters<typeof JettonMinter.jettonContentToCell>[0];
 
     let code: Cell;
@@ -86,6 +86,9 @@ describe('Pool', () => {
     });
 
     it('should allow to buy jettons', async () => {
+        const sendAmount = 1000_000_000n;
+        const buyResult = await poolContract.sendBuyJetton(deployer.getSender(), sendAmount);
+
         throw 'todo: implement'
     });
 
