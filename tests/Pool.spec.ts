@@ -1,5 +1,5 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
-import { Cell } from '@ton/core';
+import { Cell, Address } from '@ton/core';
 import { Pool } from '../wrappers/Pool';
 import { JettonMinter } from '../wrappers/JettonMinter';
 import '@ton/test-utils';
@@ -86,5 +86,17 @@ describe('Pool', () => {
 
     it('should allow to buy jettons', async () => {
         throw 'todo: implement'
-    })
+    });
+
+    it('should increase its ton_balance by no less than its balance is actually increased, plus fee', async () => {
+        const sendAmount = 1000_000_000n;
+        const poolBalanceBefore = await poolContract.getBalance();
+
+        await poolContract.sendBuyJetton(deployer.getSender(), sendAmount);
+
+        const poolBalanceAfter = await poolContract.getBalance();
+        const expectedFee = await poolContract.getBuyJettonFixedFee();
+
+        expect(poolBalanceAfter - poolBalanceBefore).toBeGreaterThanOrEqual(sendAmount - expectedFee);
+    });
 });

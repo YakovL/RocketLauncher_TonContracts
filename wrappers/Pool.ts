@@ -77,4 +77,14 @@ export class Pool implements Contract {
             .endCell(),
         });
     }
+
+    async getBalance(provider: ContractProvider) {
+        const state = await provider.getState();
+        return state.balance;
+    }
+
+    async getBuyJettonFixedFee(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("buy_jetton_fixed_fee", []);
+        return stack.readBigNumber();
+    }
 }
