@@ -188,6 +188,23 @@ const fee_buy_jetton_tx = 2500000;       ;; computation fees etc
 
         int effective_ton_amount = available_ton_amount - available_ton_amount * FEE_PER_MILLE ^/ 1000;
         int jetton_amount_to_send = get_jetton_amount_for_ton(effective_ton_amount, _jetton_balance, _ton_balance, T0);
+
+        send_jetton(
+            sender_address, jetton_amount_to_send,
+            POOL_JETTON_WALLET_ADDRESS,
+            query_id,
+            sender_address, ;; response; maybe will send to my_address() in the future
+            fee_buy_jetton_forward
+        );
+
+        save_data(JETTON_METADATA
+            , _jetton_balance - jetton_amount_to_send
+            , _ton_balance + effective_ton_amount
+            , T0
+            , FEE_PER_MILLE
+            , FACTORY_ADDRESS
+            , POOL_JETTON_WALLET_ADDRESS
+            , IS_INITED);
         return ();
     }
 
