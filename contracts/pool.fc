@@ -74,6 +74,8 @@ int get_ton_amount_for_jetton(int jetton_amount, int jetton_balance, int ton_bal
     return jetton_amount * (ton_balance + T0) / (jetton_balance + jetton_amount);
 }
 
+const send_jetton_forward_further_amount = 1000000;
+
 () send_jetton(
     slice to_address
   , int jetton_amount
@@ -82,9 +84,7 @@ int get_ton_amount_for_jetton(int jetton_amount, int jetton_balance, int ton_bal
   , slice response_address
   , int send_value
 ) impure inline {
-    ;; TODO: estimate this better, explain source of truth (toNano('0.05') is used in JettonWallet.spec with forwardPayload: null)
-    int forward_amount = 50000000;
-    if(send_value < forward_amount) {
+    if(send_value < send_jetton_forward_further_amount) {
         ;; not enough TON provided for the message
         ;; https://docs.ton.org/learn/tvm-instructions/tvm-exit-codes
         throw(37);
@@ -96,7 +96,7 @@ int get_ton_amount_for_jetton(int jetton_amount, int jetton_balance, int ton_bal
             ;; info = header
             .store_uint(0x18, 6)
             .store_slice(pool_jetton_wallet_address)
-            ;; TODO learn if this should be  send_value - forward_amount  instead
+            ;; TODO learn if this should be  send_value - send_jetton_forward_further_amount  instead
             .store_coins(send_value)
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
 
@@ -104,16 +104,17 @@ int get_ton_amount_for_jetton(int jetton_amount, int jetton_balance, int ton_bal
             .store_uint(0, 1) ;; init is empty
 
             ;; body by ref (too big to be inline)
-            .store_uint(1, 1) ;; body by ref (Either ..)
+            .store_uint(1, 1)     ;; body by ref (Either ..)
             .store_ref(begin_cell()
                 .store_uint(op::transfer(), 32)
                 .store_uint(query_id, 64)
                 .store_coins(jetton_amount)
                 .store_slice(to_address)
                 .store_slice(response_address)
-                .store_uint(0, 1)            ;; .storeMaybeRef(customPayload: Cell | null) – null in all JettonWallet.spec
-                .store_coins(forward_amount) ;; for the rest of txs
-                .store_uint(0, 1)            ;; .storeMaybeRef(forwardPayload: Cell | null)
+                .store_uint(0, 1) ;; .storeMaybeRef(customPayload: Cell | null) – null in all JettonWallet.spec
+                ;; for the rest of txs
+                .store_coins(send_jetton_forward_further_amount)
+                .store_uint(0, 1) ;; .storeMaybeRef(forwardPayload: Cell | null)
             .end_cell())
         .end_cell(),
 
@@ -129,8 +130,9 @@ const operation_buy_jetton = 1;
 const error_already_initiated = 0xfff0;
 const error_not_allowed_before_initiate = 0xfff1;
 
-const fee_buy_jetton_forward = 100000000;
-const fee_buy_jetton_tx = 2500000; ;; computation fees etc, estimated from tests (not using exact number to update less frequently – was ~2.3M)
+;; these are estimated in tests; not using exact numbers to update less frequently
+const fee_buy_jetton_forward = 47500000; ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
+const fee_buy_jetton_tx = 2500000;       ;; computation fees etc
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     ;; accept empty messages (sending TON to contract balance)
