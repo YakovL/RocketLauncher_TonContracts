@@ -84,26 +84,34 @@ export class JettonWallet implements Contract {
                     response_destination:MsgAddress custom_payload:(Maybe ^Cell)
                     = InternalMsgBody;
     */
-    static burnMessage(jetton_amount: bigint,
-                       responseAddress:Address,
-                       customPayload: Cell | null) {
-        return beginCell().storeUint(0x595f07bc, 32).storeUint(0, 64) // op, queryId
-                          .storeCoins(jetton_amount).storeAddress(responseAddress)
-                          .storeMaybeRef(customPayload)
-               .endCell();
+    static burnMessage(
+        jetton_amount: bigint,
+        responseAddress: Address,
+        customPayload: Cell | null
+    ) {
+        const queryId = 0;
+        return beginCell()
+            .storeUint(Op.burn, 32)
+            .storeUint(queryId, 64)
+            .storeCoins(jetton_amount)
+            .storeAddress(responseAddress)
+            .storeMaybeRef(customPayload)
+        .endCell();
     }
 
-    async sendBurn(provider: ContractProvider, via: Sender, value: bigint,
-                          jetton_amount: bigint,
-                          responseAddress:Address,
-                          customPayload: Cell) {
+    async sendBurn(provider: ContractProvider, via: Sender,
+        value: bigint,
+        jetton_amount: bigint,
+        responseAddress: Address,
+        customPayload: Cell
+    ) {
         await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: JettonWallet.burnMessage(jetton_amount, responseAddress, customPayload),
-            value:value
+            value
         });
-
     }
+
     /*
       withdraw_tons#107c49ef query_id:uint64 = InternalMsgBody;
     */
