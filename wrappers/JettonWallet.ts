@@ -103,7 +103,7 @@ export class JettonWallet implements Contract {
         value: bigint,
         jetton_amount: bigint,
         responseAddress: Address,
-        customPayload: Cell
+        customPayload: Cell | null
     ) {
         await provider.internal(via, {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
