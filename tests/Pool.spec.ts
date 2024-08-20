@@ -89,7 +89,20 @@ describe('Pool', () => {
         const sendAmount = 1000_000_000n;
         const buyResult = await poolContract.sendBuyJetton(deployer.getSender(), sendAmount);
 
-        throw 'todo: implement'
+        const walletCreatedEvent = buyResult.events.find(e => e.type === 'account_created');
+        expect(walletCreatedEvent).toBeTruthy();
+        const deployerJettonWalletAddress = (walletCreatedEvent as { account: Address }).account;
+        expect(Address.isAddress(deployerJettonWalletAddress)).toBeTruthy();
+        const deployerJettonWallet = JettonWallet.createFromAddress(deployerJettonWalletAddress);
+
+        const deployerJettonWalletContract = blockchain.openContract(deployerJettonWallet);
+        const balance = await deployerJettonWalletContract.getJettonBalance();
+        const expectedConstFee = await poolContract.getBuyJettonFixedFee();
+        const expectedPercentFee = sendAmount * BigInt(feePerMille) / 1000n;
+        const expectedEffectiveTonAmout = sendAmount - expectedConstFee - expectedPercentFee;
+        // in fact, for such a small buy we get exactly  expectedEffectiveTonAmout / jettonMinPrice
+        expect(balance).toBeGreaterThan(expectedEffectiveTonAmout / jettonMinPrice / 2n);
+        expect(balance).toBeLessThanOrEqual(expectedEffectiveTonAmout / jettonMinPrice);
     });
 
     it('should sell jettons by increasing price', async () => {
