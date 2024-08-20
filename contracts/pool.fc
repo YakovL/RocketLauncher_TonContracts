@@ -84,7 +84,7 @@ const send_jetton_forward_further_amount = 1000000;
   , slice response_address
   , int send_value
 ) impure inline {
-    if(send_value < send_jetton_forward_further_amount) {
+    if (send_value < send_jetton_forward_further_amount) {
         ;; not enough TON provided for the message
         ;; https://docs.ton.org/learn/tvm-instructions/tvm-exit-codes
         throw(37);
