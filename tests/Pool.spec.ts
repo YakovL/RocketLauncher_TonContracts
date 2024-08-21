@@ -15,6 +15,10 @@ describe('Pool', () => {
         uri: 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json',
     } as Parameters<typeof JettonMinter.jettonContentToCell>[0];
 
+    // these were estimated from the 'should allow to ... send jettons' test
+    const sendJetton_estimatedValue = 45_000_000n;
+    const sendJetton_estimatedForwardAmount = 2_000_000n;
+
     let code: Cell;
     let minterCode: Cell;
     let walletCode: Cell;
@@ -85,7 +89,7 @@ describe('Pool', () => {
         // blockchain and pool are ready to use
     });
 
-    it('should allow to buy jettons', async () => {
+    it('should allow to buy and sell jettons', async () => {
         const sendAmount = 1000_000_000n;
         const buyResult = await poolContract.sendBuyJetton(deployer.getSender(), sendAmount);
 
@@ -103,6 +107,27 @@ describe('Pool', () => {
         // in fact, for such a small buy we get exactly  expectedEffectiveTonAmout / jettonMinPrice
         expect(deployerJettonBalance).toBeGreaterThan(expectedEffectiveTonAmout / jettonMinPrice / 2n);
         expect(deployerJettonBalance).toBeLessThanOrEqual(expectedEffectiveTonAmout / jettonMinPrice);
+
+        // == sell ==
+        const deployerBalanceBeforeSell = await deployer.getBalance();
+
+        const sendJettonAmount = deployerJettonBalance;
+        const sellResult = await deployerJettonWalletContract.sendTransfer(deployer.getSender(),
+            sendJetton_estimatedValue,
+            sendJettonAmount,
+            poolContract.address,   // to
+            deployer.address,       // response address
+            null,                   // custom payload
+            sendJetton_estimatedForwardAmount,
+            null                    // forward payload
+        );
+        expect(sellResult.transactions).not.toHaveTransaction({ success: false });
+
+        const deployerBalanceAfterSell = await deployer.getBalance();
+        const deployerJettonBalanceAfterSell = await deployerJettonWalletContract.getJettonBalance();
+
+        expect(deployerJettonBalanceAfterSell).toEqual(0n);
+        expect(deployerBalanceAfterSell - deployerBalanceBeforeSell - sendJetton_estimatedValue).toBeGreaterThan(0n);
     });
 
     it('should sell jettons by increasing price', async () => {
