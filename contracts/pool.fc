@@ -129,6 +129,7 @@ const operation_buy_jetton = 1;
 
 const error_already_initiated = 0xfff0;
 const error_not_allowed_before_initiate = 0xfff1;
+const error_notification_from_wrong_address = 0xfff2;
 
 ;; these are estimated in tests; not using exact numbers to update less frequently
 const fee_buy_jetton_forward = 47500000; ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
@@ -205,6 +206,20 @@ const fee_buy_jetton_tx = 2500000;       ;; computation fees etc
             , FACTORY_ADDRESS
             , POOL_JETTON_WALLET_ADDRESS
             , IS_INITED);
+        return ();
+    }
+
+    ;; somebody sent us jetton – we consider this as a swap (sell jetton) attempt
+    if (operation_type == op::transfer_notification()) {
+        if (~ are_slices_equal(sender_address, POOL_JETTON_WALLET_ADDRESS)) {
+            ;; for simplicity, we don't try to send back as this requires to check
+            ;; if the sender is in fact a jetton wallet and if msg_value is enough to revert
+            throw(error_notification_from_wrong_address);
+        }
+
+        var received_jetton_amount = in_msg_body~load_coins();
+        var jetton_sender_address = in_msg_body~load_msg_addr();
+
         return ();
     }
 
