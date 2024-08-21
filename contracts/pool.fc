@@ -123,6 +123,30 @@ const send_jetton_forward_further_amount = 1000000;
     );
 }
 
+() send_ton(
+    slice to_address
+  , int amount
+  , int query_id
+) impure inline {
+    send_raw_message(
+        begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(to_address)
+            .store_coins(amount)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            ;; body, see https://docs.ton.org/develop/smart-contracts/guidelines/internal-messages#simple-message-with-comment
+            .store_uint(0, 32)   ;; zero op-code
+            ;; can send a readable comment instead: .store_slice("swap jetton to ton")
+            ;; but passing query_id should be more informative
+            .store_uint(0xff, 8)
+            .store_uint(query_id, 64)
+        .end_cell(),
+
+        ;; deduce transfer fees from the sent amount
+        0
+    );
+}
+
 ;; == messages ==
 const operation_initiate = 101;
 const operation_buy_jetton = 1;
@@ -219,6 +243,9 @@ const fee_buy_jetton_tx = 2500000;       ;; computation fees etc
 
         var received_jetton_amount = in_msg_body~load_coins();
         var jetton_sender_address = in_msg_body~load_msg_addr();
+
+        int ton_swap_amount = get_ton_amount_for_jetton(received_jetton_amount, _jetton_balance, _ton_balance, T0);
+        int effective_ton_amount = ton_swap_amount - ton_swap_amount * FEE_PER_MILLE ^/ 1000 - fee_process_jetton_swap_tx;
 
         return ();
     }
