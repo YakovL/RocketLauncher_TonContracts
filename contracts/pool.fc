@@ -247,6 +247,17 @@ const fee_buy_jetton_tx = 2500000;       ;; computation fees etc
         int ton_swap_amount = get_ton_amount_for_jetton(received_jetton_amount, _jetton_balance, _ton_balance, T0);
         int effective_ton_amount = ton_swap_amount - ton_swap_amount * FEE_PER_MILLE ^/ 1000 - fee_process_jetton_swap_tx;
 
+        ;; effective_ton_amount <= ton_swap_amount <= _ton_balance
+        ;; always, so we can send effective_ton_amount and deduce it from _ton_balance
+        send_ton(jetton_sender_address, effective_ton_amount, query_id);
+        save_data(JETTON_METADATA
+            , _jetton_balance + received_jetton_amount
+            , _ton_balance - effective_ton_amount
+            , T0
+            , FEE_PER_MILLE
+            , FACTORY_ADDRESS
+            , POOL_JETTON_WALLET_ADDRESS
+            , IS_INITED);
         return ();
     }
 
