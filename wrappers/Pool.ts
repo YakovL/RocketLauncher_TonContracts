@@ -87,6 +87,11 @@ export class Pool implements Contract {
         return state.balance;
     }
 
+    async getVirtualTonBalance(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("ton_balance", []);
+        return stack.readBigNumber();
+    }
+
     async getBuyJettonFixedFee(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("buy_jetton_fixed_fee", []);
         return stack.readBigNumber();

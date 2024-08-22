@@ -65,6 +65,8 @@
 }
 
 ;; == helpers ==
+int are_slices_equal(slice a, slice b) asm "SDEQ";
+
 ;; doesn't account the fee – should be deduced before (ton_amount = amount_sent - fee)
 int get_jetton_amount_for_ton(int ton_amount, int jetton_balance, int ton_balance, int T0) inline {
     return ton_amount * jetton_balance / (ton_balance + T0 + ton_amount);
@@ -156,8 +158,9 @@ const error_not_allowed_before_initiate = 0xfff1;
 const error_notification_from_wrong_address = 0xfff2;
 
 ;; these are estimated in tests; not using exact numbers to update less frequently
-const fee_buy_jetton_forward = 47500000; ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
-const fee_buy_jetton_tx = 2500000;       ;; computation fees etc
+const fee_buy_jetton_forward = 47500000;    ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
+const fee_buy_jetton_tx = 2500000;          ;; computation fees etc
+const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     ;; accept empty messages (sending TON to contract balance)
@@ -245,11 +248,24 @@ const fee_buy_jetton_tx = 2500000;       ;; computation fees etc
         var jetton_sender_address = in_msg_body~load_msg_addr();
 
         int ton_swap_amount = get_ton_amount_for_jetton(received_jetton_amount, _jetton_balance, _ton_balance, T0);
-        int effective_ton_amount = ton_swap_amount - ton_swap_amount * FEE_PER_MILLE ^/ 1000 - fee_process_jetton_swap_tx;
+        int effective_ton_amount = ton_swap_amount - ton_swap_amount * FEE_PER_MILLE ^/ 1000;
 
         ;; effective_ton_amount <= ton_swap_amount <= _ton_balance
         ;; always, so we can send effective_ton_amount and deduce it from _ton_balance
-        send_ton(jetton_sender_address, effective_ton_amount, query_id);
+        {- formal proof:
+            since (_ton_balance + T0) * _jetton_balance >= k_0 = S * T0
+            and S - _jetton_balance >= jetton_amount,
+
+            (_ton_balance + T0) * _jetton_balance >= (jetton_amount + _jetton_balance) * T0, <=>
+            _ton_balance * _jetton_balance >= jetton_amount * T0, <=>
+            _ton_balance * (jetton_balance + jetton_amount) >= jetton_amount * (_ton_balance + T0) <=>
+            _ton_balance >= jetton_amount * (_ton_balance + T0) / (jetton_balance + jetton_amount) <=>
+            _ton_balance >= ton_swap_amount >= effective_ton_amount
+        -}
+        send_ton(
+            jetton_sender_address,
+            effective_ton_amount - fee_process_jetton_swap_tx + msg_value,
+            query_id);
         save_data(JETTON_METADATA
             , _jetton_balance + received_jetton_amount
             , _ton_balance - effective_ton_amount
