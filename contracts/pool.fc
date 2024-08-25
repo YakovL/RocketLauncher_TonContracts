@@ -188,6 +188,7 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
         , admin_address
         , IS_INITED
     ) = load_data();
+    var should_update_data_before_return = 0;
 
     ;; handle initiate and attempts to handle other ops before initiation
     if (operation_type == operation_initiate) {
@@ -200,21 +201,13 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
             admin_address = sender_address;
             IS_INITED = 1;
-            save_data(JETTON_METADATA,
-                  _jetton_balance
-                , _ton_balance
-                , T0
-                , FEE_PER_MILLE
-                , FACTORY_ADDRESS
-                , POOL_JETTON_WALLET_ADDRESS
-                , admin_address
-                , IS_INITED);
-            return ();
+
+            should_update_data_before_return = 1;
         } else {
             throw(error_already_initiated);
         }
     }
-    if ((operation_type != operation_initiate) & IS_INITED != 1) {
+    if ((operation_type != operation_initiate) & (IS_INITED != 1)) {
         throw(error_not_allowed_before_initiate);
     }
 
@@ -232,16 +225,9 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             fee_buy_jetton_forward
         );
 
-        save_data(JETTON_METADATA
-            , _jetton_balance - jetton_amount_to_send
-            , _ton_balance + effective_ton_amount
-            , T0
-            , FEE_PER_MILLE
-            , FACTORY_ADDRESS
-            , POOL_JETTON_WALLET_ADDRESS
-            , admin_address
-            , IS_INITED);
-        return ();
+        _jetton_balance -= jetton_amount_to_send;
+        _ton_balance += effective_ton_amount;
+        should_update_data_before_return = 1;
     }
 
     ;; somebody sent us jetton – we consider this as a swap (sell jetton) attempt
@@ -274,15 +260,22 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             jetton_sender_address,
             effective_ton_amount - fee_process_jetton_swap_tx + msg_value,
             query_id);
-        save_data(JETTON_METADATA
-            , _jetton_balance + received_jetton_amount
-            , _ton_balance - effective_ton_amount
-            , T0
-            , FEE_PER_MILLE
-            , FACTORY_ADDRESS
-            , POOL_JETTON_WALLET_ADDRESS
-            , admin_address
-            , IS_INITED);
+
+        _jetton_balance += received_jetton_amount;
+        _ton_balance -= effective_ton_amount;
+        should_update_data_before_return = 1;
+    }
+
+    if (should_update_data_before_return == 1) {
+        save_data(JETTON_METADATA,
+            _jetton_balance,
+            _ton_balance,
+            T0,
+            FEE_PER_MILLE,
+            FACTORY_ADDRESS,
+            POOL_JETTON_WALLET_ADDRESS,
+            admin_address,
+            IS_INITED);
         return ();
     }
 
