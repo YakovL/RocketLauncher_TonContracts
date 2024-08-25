@@ -22,6 +22,7 @@
     ;; although this may be deduced from JETTON_METADATA, that would require extra code and passing
     ;; jetton_minter_code and jetton_wallet_code from factory, so passing just this is leaner
   , slice ;; POOL_JETTON_WALLET_ADDRESS
+  , slice ;; admin_address
   , int   ;; IS_INITED
 ) load_data() inline {
     slice ds = get_data().begin_parse();
@@ -35,6 +36,7 @@
       , ds~load_uint(10)   ;; FEE_PER_MILLE
       , ds~load_msg_addr() ;; FACTORY_ADDRESS
       , ds~load_msg_addr() ;; POOL_JETTON_WALLET_ADDRESS
+      , ds~load_msg_addr() ;; admin_address
       , ds~load_uint(1)    ;; IS_INITED
     );
 }
@@ -50,6 +52,7 @@
   , int FEE_PER_MILLE
   , slice FACTORY_ADDRESS
   , slice POOL_JETTON_WALLET_ADDRESS
+  , slice admin_address
   , int IS_INITED
 ) impure inline {
     set_data(begin_cell()
@@ -60,6 +63,7 @@
         .store_uint(FEE_PER_MILLE, 10)
         .store_slice(FACTORY_ADDRESS)
         .store_slice(POOL_JETTON_WALLET_ADDRESS)
+        .store_slice(admin_address)
         .store_uint(IS_INITED, 1)
     .end_cell());
 }
@@ -181,6 +185,7 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
         , FEE_PER_MILLE
         , FACTORY_ADDRESS
         , POOL_JETTON_WALLET_ADDRESS
+        , admin_address
         , IS_INITED
     ) = load_data();
 
@@ -193,6 +198,7 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             FEE_PER_MILLE = in_msg_body~load_uint(10);
             FACTORY_ADDRESS = in_msg_body~load_msg_addr();
             POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
+            admin_address = sender_address;
             IS_INITED = 1;
             save_data(JETTON_METADATA,
                   _jetton_balance
@@ -201,6 +207,7 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
                 , FEE_PER_MILLE
                 , FACTORY_ADDRESS
                 , POOL_JETTON_WALLET_ADDRESS
+                , admin_address
                 , IS_INITED);
             return ();
         } else {
@@ -232,6 +239,7 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             , FEE_PER_MILLE
             , FACTORY_ADDRESS
             , POOL_JETTON_WALLET_ADDRESS
+            , admin_address
             , IS_INITED);
         return ();
     }
@@ -273,6 +281,7 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             , FEE_PER_MILLE
             , FACTORY_ADDRESS
             , POOL_JETTON_WALLET_ADDRESS
+            , admin_address
             , IS_INITED);
         return ();
     }
@@ -284,14 +293,14 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
 ;; == getters ==
 int jetton_balance() method_id {
     var (_, _jetton_balance
-        , _, _, _, _, _, _
+        , _, _, _, _, _, _, _
     ) = load_data();
     return _jetton_balance;
 }
 
 int ton_balance() method_id {
     var (_, _, _ton_balance
-        , _, _, _, _, _
+        , _, _, _, _, _, _
     ) = load_data();
     return _ton_balance;
 }

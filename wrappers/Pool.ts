@@ -32,6 +32,7 @@ export class Pool implements Contract {
             .storeUint(0, 10)  // placeholder: FEE_PER_MILLE
             .storeUint(0, 2)   // placeholder: FACTORY_ADDRESS
             .storeUint(0, 2)   // placeholder: POOL_JETTON_WALLET_ADDRESS
+            .storeUint(0, 2)   // placeholder: admin_address
             .storeUint(0, 1)   // IS_INITED: false
         .endCell();
     }
