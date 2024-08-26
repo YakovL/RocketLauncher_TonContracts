@@ -191,4 +191,37 @@ describe('Pool', () => {
         expect(poolBalanceAfterSell - poolBalanceBeforeSell)
             .toBeGreaterThanOrEqual(poolVirtualTonBalanceAfterSell - poolVirtualTonBalanceBeforeSell);
     });
+
+    it('should allow admin to collect funds', async () => {
+        // ensure pool has some TON
+        const additionalAmount = 2_000_000_000n;
+        await deployer.send({
+            to: poolContract.address,
+            value: additionalAmount,
+        });
+        expect(await poolContract.getBalance()).toBeGreaterThanOrEqual(additionalAmount);
+
+        const desiredAmount = additionalAmount / 10n;
+        const estimatedCollectFee = await poolContract.getCollectFeeUpperEstimation();
+        const amountToRequest = desiredAmount + estimatedCollectFee;
+
+        const deployerBalanceBefore = await deployer.getBalance();
+        const collectResult = await poolContract.sendCollectFunds(deployer.getSender(), amountToRequest);
+        const deployerBalanceAfter = await deployer.getBalance();
+        expect(collectResult.transactions).not.toHaveTransaction({ success: false });
+        expect(deployerBalanceAfter - deployerBalanceBefore).toBeGreaterThanOrEqual(desiredAmount);
+    });
+
+    it('should allow admin to collect almost all funds', async () => {
+        const collectableAmount = await poolContract.getCollectableFundsAmount();
+        const desiredAmount = collectableAmount;
+        const estimatedCollectFee = await poolContract.getCollectFeeUpperEstimation();
+        const amountToRequest = desiredAmount + estimatedCollectFee;
+
+        const deployerBalanceBefore = await deployer.getBalance();
+        const collectResult = await poolContract.sendCollectFunds(deployer.getSender(), amountToRequest);
+        const deployerBalanceAfter = await deployer.getBalance();
+        expect(collectResult.transactions).not.toHaveTransaction({ success: false });
+        expect(deployerBalanceAfter - deployerBalanceBefore).toBeGreaterThanOrEqual(desiredAmount);
+    });
 });

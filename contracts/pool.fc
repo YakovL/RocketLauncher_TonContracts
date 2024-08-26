@@ -155,16 +155,31 @@ const send_jetton_forward_further_amount = 1000000;
 
 ;; == messages ==
 const operation_initiate = 101;
+const operation_collect_funds = 102;
 const operation_buy_jetton = 1;
 
 const error_already_initiated = 0xfff0;
 const error_not_allowed_before_initiate = 0xfff1;
 const error_notification_from_wrong_address = 0xfff2;
+const error_operation_not_allowed = 403;
 
 ;; these are estimated in tests; not using exact numbers to update less frequently
 const fee_buy_jetton_forward = 47500000;    ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
 const fee_buy_jetton_tx = 2500000;          ;; computation fees etc
 const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
+const fee_collect_funds_tx = 2500000;           ;; total fees, enough to deduce when collecting far from whole balance
+const fee_collect_funds_non_transfer = 2000000; ;; fees that are deduced before the action phase and/or balance margin
+;; note: while collecting small amounts works with fee_collect_funds_non_transfer = 0,
+;; introducing it doesn't seem to allow to reduce fee_collect_funds_tx, so it's likely
+;; that it's forbidden to drain balance below some balance_margin;
+;; ideally this should be investigated further by introducing balance_margin into
+;; calculations and testing collecting small amounts and amounts close to the full balance again,
+;; but for simplicity we don't do this as this just keeps a small amount on balance in the worst case
+
+int get_collectable_funds_amount(int virtual_ton_balance) inline {
+    var [real_balance, _] = get_balance();
+    return real_balance - virtual_ton_balance;
+}
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     ;; accept empty messages (sending TON to contract balance)
@@ -266,6 +281,28 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
         should_update_data_before_return = 1;
     }
 
+    if (operation_type == operation_collect_funds) {
+        if (~ are_slices_equal(sender_address, admin_address)) {
+            throw(error_operation_not_allowed);
+        }
+
+        ;; We treat msg_value in a manner so that it doesn't affect the result,
+        ;; as long as it's large enough to cover fees – it's just added to the
+        ;; resulting value.
+        ;; We also deduce it from available amount because in the beginning
+        ;; of the tx, the real balance is increased by it, but we don't want
+        ;; it to affect the result.
+        int amount_to_send = min(
+            ;; requested amount
+            in_msg_body~load_coins(),
+            ;; available amount
+            get_collectable_funds_amount(_ton_balance) - msg_value
+        ) + msg_value - fee_collect_funds_non_transfer;
+
+        send_ton(admin_address, amount_to_send, query_id);
+        return ();
+    }
+
     if (should_update_data_before_return == 1) {
         save_data(JETTON_METADATA,
             _jetton_balance,
@@ -296,6 +333,17 @@ int ton_balance() method_id {
         , _, _, _, _, _, _
     ) = load_data();
     return _ton_balance;
+}
+
+int collectable_funds_amount() method_id {
+    var (_, _, _ton_balance
+        , _, _, _, _, _, _
+    ) = load_data();
+    return get_collectable_funds_amount(_ton_balance) - fee_collect_funds_tx - fee_collect_funds_non_transfer;
+}
+
+int collect_fee_upper_estimation() method_id {
+    return fee_collect_funds_tx + fee_collect_funds_non_transfer;
 }
 
 int buy_jetton_fixed_fee() method_id {
