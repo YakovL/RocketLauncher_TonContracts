@@ -33,12 +33,14 @@ describe('Pool', () => {
 
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
+    let nonDeployer: SandboxContract<TreasuryContract>;
     let poolContract: SandboxContract<Pool>;
     let minterContract: SandboxContract<JettonMinter>;
     let poolJettonWalletAddress: Address;
     beforeEach(async () => {
         blockchain = await Blockchain.create();
         deployer = await blockchain.treasury('deployer');
+        nonDeployer = await blockchain.treasury('nonDeployer');
 
         const minter = JettonMinter.createFromConfig({
             admin: deployer.address,
@@ -223,5 +225,15 @@ describe('Pool', () => {
         const deployerBalanceAfter = await deployer.getBalance();
         expect(collectResult.transactions).not.toHaveTransaction({ success: false });
         expect(deployerBalanceAfter - deployerBalanceBefore).toBeGreaterThanOrEqual(desiredAmount);
+    });
+
+    it('should not allow non-admin to collect funds', async () => {
+        const collectableAmount = await poolContract.getCollectableFundsAmount();
+        const desiredAmount = collectableAmount;
+        const estimatedCollectFee = await poolContract.getCollectFeeUpperEstimation();
+        const amountToRequest = desiredAmount + estimatedCollectFee;
+
+        const collectResult = await poolContract.sendCollectFunds(nonDeployer.getSender(), amountToRequest);
+        expect(collectResult.transactions).toHaveTransaction({ success: false });
     });
 });
