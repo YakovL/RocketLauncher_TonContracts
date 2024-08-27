@@ -214,7 +214,7 @@ describe('Pool', () => {
         expect(deployerBalanceAfter - deployerBalanceBefore).toBeGreaterThanOrEqual(desiredAmount);
     });
 
-    it('should allow admin to collect almost all funds', async () => {
+    it('should allow admin to collect almost all funds and keep balance consistent', async () => {
         const collectableAmount = await poolContract.getCollectableFundsAmount();
         const desiredAmount = collectableAmount;
         const estimatedCollectFee = await poolContract.getCollectFeeUpperEstimation();
@@ -225,6 +225,11 @@ describe('Pool', () => {
         const deployerBalanceAfter = await deployer.getBalance();
         expect(collectResult.transactions).not.toHaveTransaction({ success: false });
         expect(deployerBalanceAfter - deployerBalanceBefore).toBeGreaterThanOrEqual(desiredAmount);
+
+        // virtual balance should remain consistent
+        const contractBalance = await poolContract.getBalance();
+        const contractVirtualTonBalance = await poolContract.getVirtualTonBalance();
+        expect(contractBalance).toBeGreaterThanOrEqual(contractVirtualTonBalance);
     });
 
     it('should not allow non-admin to collect funds', async () => {
