@@ -6,6 +6,7 @@ import {
 export type JettonFactoryConfig = {
     minterCode: Cell;
     walletCode: Cell;
+    poolCode: Cell;
 };
 
 // Current implementation only supports off-chain format:
@@ -21,7 +22,8 @@ export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
     return beginCell()
         .storeRef(config.minterCode)
         .storeRef(config.walletCode)
-        .endCell();
+        .storeRef(config.poolCode)
+    .endCell();
 }
 
 export class JettonFactory implements Contract {

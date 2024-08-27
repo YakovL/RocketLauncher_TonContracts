@@ -3,16 +3,19 @@ import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
 import { compile } from '@ton/blueprint';
 import { JettonFactory } from '../wrappers/JettonFactory';
 import { JettonMinter } from '../wrappers/JettonMinter';
+import { Pool } from '../wrappers/Pool';
 import '@ton/test-utils';
 
 describe('JettonFactory', () => {
     let factoryCode: Cell;
     let minterCode: Cell;
     let walletCode: Cell;
+    let poolCode: Cell;
     beforeAll(async () => {
         factoryCode = await compile('JettonFactory');
         minterCode = await compile('JettonMinter');
         walletCode = await compile('JettonWallet');
+        poolCode = await compile('Pool');
     });
 
     let blockchain: Blockchain;
@@ -20,13 +23,14 @@ describe('JettonFactory', () => {
     let jettonFactoryContract: SandboxContract<JettonFactory>;
     beforeEach(async () => {
         blockchain = await Blockchain.create();
+        deployer = await blockchain.treasury('deployer');
+
         const jettonFactory = JettonFactory.createFromConfig({
             minterCode,
             walletCode,
+            poolCode,
         }, factoryCode);
         jettonFactoryContract = blockchain.openContract(jettonFactory);
-
-        deployer = await blockchain.treasury('deployer');
 
         const deployResult = await jettonFactoryContract.sendDeploy(
             deployer.getSender(),
