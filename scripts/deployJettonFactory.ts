@@ -6,10 +6,15 @@ export async function run(provider: NetworkProvider) {
     const walletCode = await compile('JettonWallet');
     const poolCode = await compile('Pool');
 
+    const sender = provider.sender()
+    if(!sender.address) {
+        throw new Error('deployJettonFactory: deployer address is undefined');
+    }
     const jettonFactory = provider.open(JettonFactory.createFromConfig({
         minterCode,
         walletCode,
         poolCode,
+        adminAddress: sender.address,
     }, await compile('JettonFactory')));
 
     await jettonFactory.sendDeploy(provider.sender(), jettonFactory.estimatedDeployGasPrice);

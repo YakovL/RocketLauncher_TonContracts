@@ -7,6 +7,7 @@ export type JettonFactoryConfig = {
     minterCode: Cell;
     walletCode: Cell;
     poolCode: Cell;
+    adminAddress: Address;
 };
 
 // Current implementation only supports off-chain format:
@@ -23,6 +24,7 @@ export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
         .storeRef(config.minterCode)
         .storeRef(config.walletCode)
         .storeRef(config.poolCode)
+        .storeAddress(config.adminAddress)
     .endCell();
 }
 
