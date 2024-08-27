@@ -126,7 +126,7 @@ const mint_total_ton_amount =  100000000;
 }
 
 ;; == messages ==
-const operation_deploy_new_jetton = 1;
+const operation_deploy_jetton = 2;
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     ;; accept empty messages (including sending TON to contract balance)
@@ -139,8 +139,7 @@ const operation_deploy_new_jetton = 1;
     ;; later: maybe load minter_code and wallet_code only when deploying (but always load things like admin_address)
     (cell minter_code, cell wallet_code) = load_data();
 
-    ;; deploy new jetton
-    if (operation_type == operation_deploy_new_jetton) {
+    if (operation_type == operation_deploy_jetton) {
         ;; this must be aligned with sendDeployNewJetton
         int total_supply = in_msg_body~load_coins();
         cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'

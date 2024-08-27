@@ -49,6 +49,11 @@ export class JettonFactory implements Contract {
         });
     }
 
+    // must be aligned with jetton_factory.rc
+    ops = {
+        deployJetton: 2,
+    };
+
     // public methods
     // Based on https://github.com/ton-blockchain/token-contract/blob/main/wrappers/JettonMinter.ts
     // In our case, admin is the factory contract and wallet code is stored inside it, so JettonMinterConfig is simpler
@@ -60,8 +65,6 @@ export class JettonFactory implements Contract {
             .storeUint(config.metadataType, 8)
             .storeStringTail(config.metadataUri) // presumably, implements snake data encoding (https://docs.ton.org/develop/dapps/asset-processing/metadata)
         .endCell();
-        // must be the same as in jetton_factory.rc
-        const operation_deploy_new_jetton = 1;
         // less than 0.01 is needed for Jetton deploy, so 0.02 is more than enough
         // TODO: retest after adding other operations
         const value = toNano('0.02');
@@ -69,9 +72,9 @@ export class JettonFactory implements Contract {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            // must be aligned with jetton_factory.rc (see operation_deploy_new_jetton)
+            // must be aligned with jetton_factory.rc (see operation_deploy_jetton)
             body: beginCell()
-                .storeUint(operation_deploy_new_jetton, 32)
+                .storeUint(this.ops.deployJetton, 32)
                 .storeUint(query_id, 64)
                 .storeCoins(config.totalSupply)
                 .storeRef(content)
