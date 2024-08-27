@@ -2,6 +2,8 @@ import {
     Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode,
     toNano,
 } from '@ton/core';
+import { PoolInitConfig } from './Pool'
+import { JettonMinter } from './JettonMinter';
 
 export type JettonFactoryConfig = {
     minterCode: Cell;
@@ -18,6 +20,10 @@ export type JettonMinterConfig = {
     metadataType: 0 | 1 // ?? on-chain vs off-chain?
     metadataUri: string
 };
+
+type PoolFromFactoryConfig = JettonMinterConfig & {
+    deployerSupplyPercent: bigint // not big, but int
+} & Pick<PoolInitConfig, 'minimalPrice'>
 
 export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
     return beginCell()
@@ -55,6 +61,7 @@ export class JettonFactory implements Contract {
 
     // must be aligned with jetton_factory.rc
     ops = {
+        initiateNew: 1,
         deployJetton: 2,
     };
 
@@ -65,10 +72,10 @@ export class JettonFactory implements Contract {
         // TODO: learn how to generate them, set a "correct" one (at least unique)
         const query_id = 0;
         // must be aligned with jetton-minter (more specifically: ?, see also https://docs.ton.org/develop/dapps/asset-processing/jettons#retrieving-jetton-data)
-        const content = beginCell()
-            .storeUint(config.metadataType, 8)
-            .storeStringTail(config.metadataUri) // presumably, implements snake data encoding (https://docs.ton.org/develop/dapps/asset-processing/metadata)
-        .endCell();
+        const content = JettonMinter.jettonContentToCell({
+            type: config.metadataType,
+            uri: config.metadataUri, // presumably, .storeStringTail in jettonContentToCell implements snake data encoding (https://docs.ton.org/develop/dapps/asset-processing/metadata)
+        });
         // less than 0.01 is needed for Jetton deploy, so 0.02 is more than enough
         // TODO: retest after adding other operations
         const value = toNano('0.02');
@@ -81,6 +88,27 @@ export class JettonFactory implements Contract {
                 .storeUint(this.ops.deployJetton, 32)
                 .storeUint(query_id, 64)
                 .storeCoins(config.totalSupply)
+                .storeRef(content)
+            .endCell(),
+        });
+    }
+
+    async sendDeployPool(provider: ContractProvider, via: Sender, value: bigint, config: PoolFromFactoryConfig) {
+        const content = JettonMinter.jettonContentToCell({
+            type: config.metadataType,
+            uri: config.metadataUri,
+        });
+
+        const query_id = 0;
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(this.ops.initiateNew, 32)
+                .storeUint(query_id, 64)
+                .storeCoins(config.totalSupply)
+                .storeCoins(config.minimalPrice)
+                .storeCoins(config.deployerSupplyPercent)
                 .storeRef(content)
             .endCell(),
         });
