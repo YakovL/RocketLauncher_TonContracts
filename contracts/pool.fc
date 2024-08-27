@@ -214,7 +214,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
             FEE_PER_MILLE = in_msg_body~load_uint(10);
             FACTORY_ADDRESS = in_msg_body~load_msg_addr();
             POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
-            admin_address = sender_address;
+            admin_address = in_msg_body~load_msg_addr();
             IS_INITED = 1;
 
             should_update_data_before_return = 1;

@@ -78,6 +78,7 @@ describe('Pool', () => {
                 feePerMille,
                 factoryAddress: deployer.address,      // should be factory address in case of deployment by factory
                 jettonWalletAddress: poolJettonWalletAddress,
+                adminAddress: null, // i.e. same as deployer
             }
         );
 

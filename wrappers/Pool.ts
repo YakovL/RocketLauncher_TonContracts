@@ -12,6 +12,7 @@ export type PoolInitConfig = {
     feePerMille:         number
     factoryAddress:      Address
     jettonWalletAddress: Address
+    adminAddress:        Address | null
 };
 export type PoolConfig = PoolConfigAddressDefining & PoolInitConfig;
 
@@ -58,6 +59,7 @@ export class Pool implements Contract {
                 .storeUint(initConfig.feePerMille, 10)
                 .storeAddress(initConfig.factoryAddress)
                 .storeAddress(initConfig.jettonWalletAddress)
+                .storeAddress(initConfig.adminAddress || via.address)
             .endCell(),
         });
     }
