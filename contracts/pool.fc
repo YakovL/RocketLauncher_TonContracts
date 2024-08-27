@@ -22,6 +22,7 @@
     ;; although this may be deduced from JETTON_METADATA, that would require extra code and passing
     ;; jetton_minter_code and jetton_wallet_code from factory, so passing just this is leaner
   , slice ;; POOL_JETTON_WALLET_ADDRESS
+  , slice ;; admin_address
   , int   ;; IS_INITED
 ) load_data() inline {
     slice ds = get_data().begin_parse();
@@ -35,6 +36,7 @@
       , ds~load_uint(10)   ;; FEE_PER_MILLE
       , ds~load_msg_addr() ;; FACTORY_ADDRESS
       , ds~load_msg_addr() ;; POOL_JETTON_WALLET_ADDRESS
+      , ds~load_msg_addr() ;; admin_address
       , ds~load_uint(1)    ;; IS_INITED
     );
 }
@@ -50,6 +52,7 @@
   , int FEE_PER_MILLE
   , slice FACTORY_ADDRESS
   , slice POOL_JETTON_WALLET_ADDRESS
+  , slice admin_address
   , int IS_INITED
 ) impure inline {
     set_data(begin_cell()
@@ -60,6 +63,7 @@
         .store_uint(FEE_PER_MILLE, 10)
         .store_slice(FACTORY_ADDRESS)
         .store_slice(POOL_JETTON_WALLET_ADDRESS)
+        .store_slice(admin_address)
         .store_uint(IS_INITED, 1)
     .end_cell());
 }
@@ -151,16 +155,31 @@ const send_jetton_forward_further_amount = 1000000;
 
 ;; == messages ==
 const operation_initiate = 101;
+const operation_collect_funds = 102;
 const operation_buy_jetton = 1;
 
 const error_already_initiated = 0xfff0;
 const error_not_allowed_before_initiate = 0xfff1;
 const error_notification_from_wrong_address = 0xfff2;
+const error_operation_not_allowed = 403;
 
 ;; these are estimated in tests; not using exact numbers to update less frequently
 const fee_buy_jetton_forward = 47500000;    ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
 const fee_buy_jetton_tx = 2500000;          ;; computation fees etc
 const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
+const fee_collect_funds_tx = 2500000;           ;; total fees, enough to deduce when collecting far from whole balance
+const fee_collect_funds_non_transfer = 2000000; ;; fees that are deduced before the action phase and/or balance margin
+;; note: while collecting small amounts works with fee_collect_funds_non_transfer = 0,
+;; introducing it doesn't seem to allow to reduce fee_collect_funds_tx, so it's likely
+;; that it's forbidden to drain balance below some balance_margin;
+;; ideally this should be investigated further by introducing balance_margin into
+;; calculations and testing collecting small amounts and amounts close to the full balance again,
+;; but for simplicity we don't do this as this just keeps a small amount on balance in the worst case
+
+int get_collectable_funds_amount(int virtual_ton_balance) inline {
+    var [real_balance, _] = get_balance();
+    return real_balance - virtual_ton_balance;
+}
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     ;; accept empty messages (sending TON to contract balance)
@@ -181,8 +200,10 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
         , FEE_PER_MILLE
         , FACTORY_ADDRESS
         , POOL_JETTON_WALLET_ADDRESS
+        , admin_address
         , IS_INITED
     ) = load_data();
+    var should_update_data_before_return = 0;
 
     ;; handle initiate and attempts to handle other ops before initiation
     if (operation_type == operation_initiate) {
@@ -193,21 +214,15 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             FEE_PER_MILLE = in_msg_body~load_uint(10);
             FACTORY_ADDRESS = in_msg_body~load_msg_addr();
             POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
+            admin_address = sender_address;
             IS_INITED = 1;
-            save_data(JETTON_METADATA,
-                  _jetton_balance
-                , _ton_balance
-                , T0
-                , FEE_PER_MILLE
-                , FACTORY_ADDRESS
-                , POOL_JETTON_WALLET_ADDRESS
-                , IS_INITED);
-            return ();
+
+            should_update_data_before_return = 1;
         } else {
             throw(error_already_initiated);
         }
     }
-    if ((operation_type != operation_initiate) & IS_INITED != 1) {
+    if ((operation_type != operation_initiate) & (IS_INITED != 1)) {
         throw(error_not_allowed_before_initiate);
     }
 
@@ -225,15 +240,9 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             fee_buy_jetton_forward
         );
 
-        save_data(JETTON_METADATA
-            , _jetton_balance - jetton_amount_to_send
-            , _ton_balance + effective_ton_amount
-            , T0
-            , FEE_PER_MILLE
-            , FACTORY_ADDRESS
-            , POOL_JETTON_WALLET_ADDRESS
-            , IS_INITED);
-        return ();
+        _jetton_balance -= jetton_amount_to_send;
+        _ton_balance += effective_ton_amount;
+        should_update_data_before_return = 1;
     }
 
     ;; somebody sent us jetton – we consider this as a swap (sell jetton) attempt
@@ -266,14 +275,44 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
             jetton_sender_address,
             effective_ton_amount - fee_process_jetton_swap_tx + msg_value,
             query_id);
-        save_data(JETTON_METADATA
-            , _jetton_balance + received_jetton_amount
-            , _ton_balance - effective_ton_amount
-            , T0
-            , FEE_PER_MILLE
-            , FACTORY_ADDRESS
-            , POOL_JETTON_WALLET_ADDRESS
-            , IS_INITED);
+
+        _jetton_balance += received_jetton_amount;
+        _ton_balance -= effective_ton_amount;
+        should_update_data_before_return = 1;
+    }
+
+    if (operation_type == operation_collect_funds) {
+        if (~ are_slices_equal(sender_address, admin_address)) {
+            throw(error_operation_not_allowed);
+        }
+
+        ;; We treat msg_value in a manner so that it doesn't affect the result,
+        ;; as long as it's large enough to cover fees – it's just added to the
+        ;; resulting value.
+        ;; We also deduce it from available amount because in the beginning
+        ;; of the tx, the real balance is increased by it, but we don't want
+        ;; it to affect the result.
+        int amount_to_send = min(
+            ;; requested amount
+            in_msg_body~load_coins(),
+            ;; available amount
+            get_collectable_funds_amount(_ton_balance) - msg_value
+        ) + msg_value - fee_collect_funds_non_transfer;
+
+        send_ton(admin_address, amount_to_send, query_id);
+        return ();
+    }
+
+    if (should_update_data_before_return == 1) {
+        save_data(JETTON_METADATA,
+            _jetton_balance,
+            _ton_balance,
+            T0,
+            FEE_PER_MILLE,
+            FACTORY_ADDRESS,
+            POOL_JETTON_WALLET_ADDRESS,
+            admin_address,
+            IS_INITED);
         return ();
     }
 
@@ -284,16 +323,27 @@ const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
 ;; == getters ==
 int jetton_balance() method_id {
     var (_, _jetton_balance
-        , _, _, _, _, _, _
+        , _, _, _, _, _, _, _
     ) = load_data();
     return _jetton_balance;
 }
 
 int ton_balance() method_id {
     var (_, _, _ton_balance
-        , _, _, _, _, _
+        , _, _, _, _, _, _
     ) = load_data();
     return _ton_balance;
+}
+
+int collectable_funds_amount() method_id {
+    var (_, _, _ton_balance
+        , _, _, _, _, _, _
+    ) = load_data();
+    return get_collectable_funds_amount(_ton_balance) - fee_collect_funds_tx - fee_collect_funds_non_transfer;
+}
+
+int collect_fee_upper_estimation() method_id {
+    return fee_collect_funds_tx + fee_collect_funds_non_transfer;
 }
 
 int buy_jetton_fixed_fee() method_id {

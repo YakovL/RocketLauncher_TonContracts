@@ -32,6 +32,7 @@ export class Pool implements Contract {
             .storeUint(0, 10)  // placeholder: FEE_PER_MILLE
             .storeUint(0, 2)   // placeholder: FACTORY_ADDRESS
             .storeUint(0, 2)   // placeholder: POOL_JETTON_WALLET_ADDRESS
+            .storeUint(0, 2)   // placeholder: admin_address
             .storeUint(0, 1)   // IS_INITED: false
         .endCell();
     }
@@ -64,6 +65,7 @@ export class Pool implements Contract {
     ops = {
         // these must be aligned with pool.rc
         init: 101,
+        collectFunds: 102,
         buyJetton: 1,
     };
 
@@ -94,6 +96,31 @@ export class Pool implements Contract {
 
     async getBuyJettonFixedFee(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("buy_jetton_fixed_fee", []);
+        return stack.readBigNumber();
+    }
+
+    async getCollectFeeUpperEstimation(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("collect_fee_upper_estimation", []);
+        return stack.readBigNumber();
+    }
+
+    async sendCollectFunds(provider: ContractProvider, via: Sender, amountToCollect: bigint) {
+        const query_id = 0;
+        const valueToEnsureSend = 10_000_000n; // arbitrary (is sent back to collector), but not too small (the tx shouldn't fail)
+
+        await provider.internal(via, {
+            value: valueToEnsureSend,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(this.ops.collectFunds, 32)
+                .storeUint(query_id, 64)
+                .storeCoins(amountToCollect)
+            .endCell(),
+        });
+    }
+
+    async getCollectableFundsAmount(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("collectable_funds_amount", []);
         return stack.readBigNumber();
     }
 }
