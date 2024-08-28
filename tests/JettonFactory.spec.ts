@@ -7,6 +7,8 @@ import { Pool } from '../wrappers/Pool';
 import '@ton/test-utils';
 
 describe('JettonFactory', () => {
+    const metadataUri = 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json';
+
     let factoryCode: Cell;
     let minterCode: Cell;
     let walletCode: Cell;
@@ -30,6 +32,7 @@ describe('JettonFactory', () => {
             walletCode,
             poolCode,
             adminAddress: deployer.address,
+            maxDeployerSupplyPercent: 5n,
         }, factoryCode);
         jettonFactoryContract = blockchain.openContract(jettonFactory);
 
@@ -49,6 +52,24 @@ describe('JettonFactory', () => {
     it('should deploy', async () => {
         // the check is done inside beforeEach
         // blockchain and jettonFactoryContract are ready to use
+    });
+
+    it('should deploy Pool', async () => {
+        const deployerSupplyPercent = await jettonFactoryContract.getMaxDeployerSupplyPercent();
+    });
+
+    it('should not deploy Pool when deployer requests too much supply share', async () => {
+        const deployerSupplyPercent = await jettonFactoryContract.getMaxDeployerSupplyPercent() + 1n;;
+
+        const result = await jettonFactoryContract.sendDeployPool(deployer.getSender(), 10_000_000n, {
+            metadataUri,
+            metadataType: 1,
+            totalSupply: 100_000_000_000n,
+            deployerSupplyPercent,
+            minimalPrice: 1000_000n,
+        });
+        // see error_too_much_deployer_supply_share_requested
+        expect(result.transactions).toHaveTransaction({ success: false, exitCode: 0xffa1 });
     });
 
     it('should deploy Jetton', async () => {

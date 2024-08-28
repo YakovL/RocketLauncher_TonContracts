@@ -10,6 +10,7 @@ export type JettonFactoryConfig = {
     walletCode: Cell;
     poolCode: Cell;
     adminAddress: Address;
+    maxDeployerSupplyPercent: bigint // just int
 };
 
 // Current implementation only supports off-chain format:
@@ -31,6 +32,7 @@ export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
         .storeRef(config.walletCode)
         .storeRef(config.poolCode)
         .storeAddress(config.adminAddress)
+        .storeUint(config.maxDeployerSupplyPercent, 4) // 32% is definitely a red flag, 4 bits is enough
     .endCell();
 }
 
@@ -112,5 +114,10 @@ export class JettonFactory implements Contract {
                 .storeRef(content)
             .endCell(),
         });
+    }
+
+    async getMaxDeployerSupplyPercent(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("max_deployer_supply_percent", []);
+        return stack.readBigNumber();
     }
 }
