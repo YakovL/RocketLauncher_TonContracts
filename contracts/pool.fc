@@ -9,7 +9,7 @@
 ;; or from the returned TON amount (when converting Jetton → TON).
 
 ;; == storage ==
-;; must be aligned with save_data, poolConfigToCell, handling operation_initiate
+;; must be aligned with save_data, poolConfigToCell, handling operation_pool__initiate
 (
     ;; -- address-defining --
     cell, ;; JETTON_METADATA (defines minter address and can be passed to factory for further deploy)
@@ -41,7 +41,7 @@
     );
 }
 
-;; must be aligned with load_data, poolConfigToCell, handling operation_initiate
+;; must be aligned with load_data, poolConfigToCell, handling operation_pool__initiate
 ;; only lower-case bits are supposed to be updatable
 () save_data(
     cell JETTON_METADATA,
@@ -154,15 +154,6 @@ const send_jetton_forward_further_amount = 1000000;
 }
 
 ;; == messages ==
-const operation_initiate = 101;
-const operation_collect_funds = 102;
-const operation_buy_jetton = 1;
-
-const error_already_initiated = 0xfff0;
-const error_not_allowed_before_initiate = 0xfff1;
-const error_notification_from_wrong_address = 0xfff2;
-const error_operation_not_allowed = 403;
-
 ;; these are estimated in tests; not using exact numbers to update less frequently
 const fee_buy_jetton_forward = 47500000;    ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
 const fee_buy_jetton_tx = 2500000;          ;; computation fees etc
@@ -206,7 +197,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
     var should_update_data_before_return = 0;
 
     ;; handle initiate and attempts to handle other ops before initiation
-    if (operation_type == operation_initiate) {
+    if (operation_type == operation_pool__initiate) {
         if (~ IS_INITED) {
             ;; the parsing must be aligned with sendDeploy
             _jetton_balance = in_msg_body~load_coins();
@@ -219,14 +210,14 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
 
             should_update_data_before_return = 1;
         } else {
-            throw(error_already_initiated);
+            throw(error_pool__already_initiated);
         }
     }
-    if ((operation_type != operation_initiate) & (IS_INITED != 1)) {
-        throw(error_not_allowed_before_initiate);
+    if ((operation_type != operation_pool__initiate) & (IS_INITED != 1)) {
+        throw(error_pool__not_allowed_before_initiate);
     }
 
-    if (operation_type == operation_buy_jetton) {
+    if (operation_type == operation_pool__buy_jetton) {
         int available_ton_amount = msg_value - fee_buy_jetton_forward - fee_buy_jetton_tx;
 
         int effective_ton_amount = available_ton_amount - available_ton_amount * FEE_PER_MILLE ^/ 1000;
@@ -250,7 +241,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
         if (~ are_slices_equal(sender_address, POOL_JETTON_WALLET_ADDRESS)) {
             ;; for simplicity, we don't try to send back as this requires to check
             ;; if the sender is in fact a jetton wallet and if msg_value is enough to revert
-            throw(error_notification_from_wrong_address);
+            throw(error_pool__notification_from_wrong_address);
         }
 
         var received_jetton_amount = in_msg_body~load_coins();
@@ -281,9 +272,9 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
         should_update_data_before_return = 1;
     }
 
-    if (operation_type == operation_collect_funds) {
+    if (operation_type == operation_pool__collect_funds) {
         if (~ are_slices_equal(sender_address, admin_address)) {
-            throw(error_operation_not_allowed);
+            throw(error_operation_not_allowed_from_this_address);
         }
 
         ;; We treat msg_value in a manner so that it doesn't affect the result,
