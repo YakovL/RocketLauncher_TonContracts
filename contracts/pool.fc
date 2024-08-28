@@ -30,9 +30,9 @@
         ds~load_ref(),     ;; JETTON_METADATA
 
         ;; 2^100 > 10^30, 10^21 with decimals: 9 – more than enough
-        ds~load_uint(100)  ;; pool jetton balance
-      , ds~load_uint(100)  ;; pool TON balance
-      , ds~load_uint(100)  ;; T0
+        ds~load_coins()    ;; pool jetton balance
+      , ds~load_coins()    ;; pool TON balance
+      , ds~load_coins()    ;; T0
       , ds~load_uint(10)   ;; FEE_PER_MILLE
       , ds~load_msg_addr() ;; FACTORY_ADDRESS
       , ds~load_msg_addr() ;; POOL_JETTON_WALLET_ADDRESS
@@ -57,9 +57,9 @@
 ) impure inline {
     set_data(begin_cell()
         .store_ref(JETTON_METADATA)
-        .store_uint(jetton_balance, 100)
-        .store_uint(ton_balance, 100)
-        .store_uint(T0, 100)
+        .store_coins(jetton_balance)
+        .store_coins(ton_balance)
+        .store_coins(T0)
         .store_uint(FEE_PER_MILLE, 10)
         .store_slice(FACTORY_ADDRESS)
         .store_slice(POOL_JETTON_WALLET_ADDRESS)
@@ -209,8 +209,8 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
     if (operation_type == operation_initiate) {
         if (~ IS_INITED) {
             ;; the parsing must be aligned with sendDeploy
-            _jetton_balance = in_msg_body~load_uint(100);
-            T0 = in_msg_body~load_uint(100);
+            _jetton_balance = in_msg_body~load_coins();
+            T0 = in_msg_body~load_coins();
             FEE_PER_MILLE = in_msg_body~load_uint(10);
             FACTORY_ADDRESS = in_msg_body~load_msg_addr();
             POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
