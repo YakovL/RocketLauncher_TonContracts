@@ -23,7 +23,7 @@ export class Pool implements Contract {
         return new Pool(address);
     }
 
-    // must be aligned with load_data, save_data in pool.rc
+    // must be aligned with load_data, save_data in pool.rc, and build_pool_init_data in factory.rc
     static poolConfigToCell(config: PoolConfigAddressDefining): Cell {
         return beginCell()
             .storeRef(config.poolJettonContent)

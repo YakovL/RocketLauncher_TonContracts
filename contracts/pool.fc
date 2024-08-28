@@ -41,7 +41,7 @@
     );
 }
 
-;; must be aligned with load_data, poolConfigToCell, handling operation_pool__initiate
+;; must be aligned with load_data, poolConfigToCell, handling operation_pool__initiate, and also build_pool_init_data
 ;; only lower-case bits are supposed to be updatable
 () save_data(
     cell JETTON_METADATA,

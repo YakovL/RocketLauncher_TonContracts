@@ -10,6 +10,21 @@ cell build_minter_init_data(int total_supply, slice admin_address, cell metadata
     .end_cell();
 }
 
+;; this must be aligned with the pool's save_data and Pool.poolConfigToCell
+cell build_pool_init_data(cell jetton_metadata) inline {
+    return begin_cell()
+        .store_ref(jetton_metadata)
+        .store_coins(0)    ;; placeholder: jetton_balance
+        .store_coins(0)    ;; initial ton balance is 0
+        .store_coins(0)    ;; placeholder: T0
+        .store_uint(0, 10) ;; placeholder: FEE_PER_MILLE
+        .store_uint(0, 2)  ;; placeholder: FACTORY_ADDRESS
+        .store_uint(0, 2)  ;; placeholder: POOL_JETTON_WALLET_ADDRESS
+        .store_uint(0, 2)  ;; placeholder: admin_address
+        .store_uint(0, 1)  ;; IS_INITED: false
+    .end_cell();
+}
+
 ;; taken from https://docs.ton.org/develop/func/cookbook#how-to-build-a-stateinit-cell, tested on counter factory
 cell build_contract_init_state(cell init_code, cell init_data) inline {
     return begin_cell()
@@ -163,6 +178,8 @@ const error_too_much_deployer_supply_share_requested = 0xffa1;
             throw(error_too_much_deployer_supply_share_requested);
         }
 
+        cell pool_init_data = build_pool_init_data(jetton_metadata);
+        cell pool_init_state = build_contract_init_state(pool_code, pool_init_data);
         return ();
     }
 
