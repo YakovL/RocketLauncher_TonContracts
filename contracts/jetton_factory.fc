@@ -119,6 +119,7 @@ const mint_total_ton_amount =  100000000;
   , cell  ;; wallet_code
   , cell  ;; pool_code
   , slice ;; admin_address
+  , int   ;; fee_per_mille
   , int   ;; max_deployer_supply_percent
 ) load_data() inline {
     slice ds = get_data().begin_parse();
@@ -127,6 +128,7 @@ const mint_total_ton_amount =  100000000;
       , ds~load_ref()      ;; wallet_code
       , ds~load_ref()      ;; pool_code
       , ds~load_msg_addr() ;; admin_address
+      , ds~load_coins()    ;; fee_per_mille
       , ds~load_uint(4)    ;; max_deployer_supply_percent
     );
 }
@@ -148,6 +150,7 @@ const error_too_much_deployer_supply_share_requested = 0xffa1;
     ;; later: maybe load minter_code and wallet_code only when deploying (but always load things like admin_address)
     (cell minter_code, cell wallet_code, cell pool_code
         , slice admin_address
+        , int fee_per_mille
         , int max_deployer_supply_percent
     ) = load_data();
 
@@ -189,7 +192,7 @@ const error_too_much_deployer_supply_share_requested = 0xffa1;
 
 ;; == getters ==
 int max_deployer_supply_percent() method_id {
-    (_, _, _, _,
+    (_, _, _, _, _,
         int _max_deployer_supply_percent
     ) = load_data();
     return _max_deployer_supply_percent;

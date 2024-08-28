@@ -10,7 +10,9 @@ export type JettonFactoryConfig = {
     walletCode: Cell;
     poolCode: Cell;
     adminAddress: Address;
-    maxDeployerSupplyPercent: bigint // just int
+    // bigint is used instead of number to remind these are int-s
+    feePerMille: bigint;
+    maxDeployerSupplyPercent: bigint;
 };
 
 // Current implementation only supports off-chain format:
@@ -32,6 +34,7 @@ export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
         .storeRef(config.walletCode)
         .storeRef(config.poolCode)
         .storeAddress(config.adminAddress)
+        .storeCoins(config.feePerMille)
         .storeUint(config.maxDeployerSupplyPercent, 4) // 32% is definitely a red flag, 4 bits is enough
     .endCell();
 }

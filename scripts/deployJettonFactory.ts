@@ -6,7 +6,9 @@ export async function run(provider: NetworkProvider) {
     const walletCode = await compile('JettonWallet');
     const poolCode = await compile('Pool');
     // TODO: ask interactively instead
+    const feePerMille = 10n;
     const maxDeployerSupplyPercent = 5n;
+    console.log(`feePerMille = ${feePerMille}`);
     console.log(`maxDeployerSupplyPercent = ${maxDeployerSupplyPercent}`);
 
     const sender = provider.sender()
@@ -18,6 +20,7 @@ export async function run(provider: NetworkProvider) {
         walletCode,
         poolCode,
         adminAddress: sender.address,
+        feePerMille,
         maxDeployerSupplyPercent,
     }, await compile('JettonFactory')));
 

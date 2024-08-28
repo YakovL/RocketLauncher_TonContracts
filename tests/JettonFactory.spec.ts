@@ -32,6 +32,7 @@ describe('JettonFactory', () => {
             walletCode,
             poolCode,
             adminAddress: deployer.address,
+            feePerMille: 10n,
             maxDeployerSupplyPercent: 5n,
         }, factoryCode);
         jettonFactoryContract = blockchain.openContract(jettonFactory);
