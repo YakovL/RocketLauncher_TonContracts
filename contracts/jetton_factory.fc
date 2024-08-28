@@ -27,7 +27,7 @@ cell build_contract_init_state(cell init_code, cell init_data) inline {
 ;; implementation is based on https://docs.ton.org/develop/func/cookbook#generate-internal-address
 ;; and https://github.com/ton-blockchain/token-contract/blob/main/ft/jetton-utils.fc, tested on counter factory
 ;; not sure if anycast is needed and if other workchain ids will be needed in the future
-slice calculate_minter_address(cell init_state) inline {
+slice calculate_contract_address(cell init_state) inline {
     return begin_cell()
         .store_uint(2, 2)          ;; addr_std$10
         .store_uint(0, 1)          ;; anycast nothing
@@ -42,7 +42,7 @@ slice calculate_minter_address(cell init_state) inline {
         begin_cell()
             ;; info = header
             .store_uint(0x18, 6)
-            .store_slice(calculate_minter_address(init_state))
+            .store_slice(calculate_contract_address(init_state))
             .store_coins(0)        ;; in nano, for now 0 since mode 64 allows to forward TON from the initial msg
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
 
