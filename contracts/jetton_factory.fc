@@ -178,8 +178,20 @@ const error_too_much_deployer_supply_share_requested = 0xffa1;
             throw(error_too_much_deployer_supply_share_requested);
         }
 
+        slice minter_address = calculate_contract_address(build_contract_init_state(
+            minter_code,
+            build_minter_init_data(jetton_metadata, wallet_code)
+        ));
+
         cell pool_init_data = build_pool_init_data(jetton_metadata);
         cell pool_init_state = build_contract_init_state(pool_code, pool_init_data);
+        slice pool_address = calculate_contract_address(pool_init_state);
+
+        cell pool_jetton_wallet_init_state = calculate_jetton_wallet_state_init(
+            pool_address, minter_address, wallet_code
+        );
+        slice pool_jetton_wallet_address = calculate_contract_address(pool_jetton_wallet_init_state);
+
         return ();
     }
 
