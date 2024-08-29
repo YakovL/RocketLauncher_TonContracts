@@ -63,8 +63,10 @@ export class Pool implements Contract {
                 .storeAddress(initConfig.jettonWalletAddress)
                 .storeAddress(initConfig.adminAddress || via.address)
                 // just for sending back to factory
-                .storeCoins(initConfig.jettonTotalSupply)
-                .storeAddress(initConfig.jettonAuthorAddress)
+                .storeRef(beginCell()
+                    .storeCoins(initConfig.jettonTotalSupply)
+                    .storeAddress(initConfig.jettonAuthorAddress)
+                .endCell())
             .endCell(),
         });
     }

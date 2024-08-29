@@ -208,8 +208,9 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
             admin_address = in_msg_body~load_msg_addr();
             IS_INITED = 1;
 
-            int total_supply = in_msg_body~load_coins();
-            slice jetton_author_address = in_msg_body~load_msg_addr();
+            var forward_data_additions = in_msg_body~load_ref().begin_parse();
+            int total_supply = forward_data_additions~load_coins();
+            slice jetton_author_address = forward_data_additions~load_msg_addr();
 
             should_update_data_before_return = 1;
         } else {
