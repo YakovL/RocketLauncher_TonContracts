@@ -79,6 +79,56 @@ slice calculate_contract_address(cell init_state) inline {
     );
 }
 
+;; TODO: estimate and set, check also message mode
+const deploy_pool_fee_estimation = 0;
+() deploy_pool(
+    cell init_state,
+    slice address,   ;; = calculate_contract_address(init_state), but since we calc it before, let's not calc it again
+    int total_supply,
+    int deployer_supply_share_percent,
+    int minimal_price,
+    int fee_per_mille,
+    slice admin_address,
+    slice pool_jetton_wallet_address,
+    slice jetton_author_address,
+    int query_id
+) impure inline {
+    send_raw_message(
+        begin_cell()
+            ;; header
+            .store_uint(0x18, 6)
+            .store_slice(address)
+            .store_coins(deploy_pool_fee_estimation)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32)
+
+            ;; init
+            .store_uint(1, 1) ;; non-empty
+            .store_uint(1, 1) ;; serialized in another cell
+            .store_ref(init_state)
+
+            ;; body (deploying pool involves handling body as well)
+            .store_uint(1, 1) ;; by ref (too big for in-place)
+            .store_ref(begin_cell()
+                .store_uint(operation_pool__initiate, 32)
+                .store_uint(query_id, 64)
+                .store_coins(total_supply - total_supply * deployer_supply_share_percent ^/ 1000)
+                .store_coins(total_supply * minimal_price)
+                .store_uint(fee_per_mille, 10)
+                .store_slice(my_address())
+                .store_slice(pool_jetton_wallet_address)
+                .store_slice(admin_address)
+                ;; callback values
+                .store_ref(begin_cell()
+                    .store_coins(total_supply)
+                    .store_slice(jetton_author_address)
+                .end_cell())
+            .end_cell())
+        .end_cell(),
+
+        0 + 16
+    );
+}
+
 ;; copied from minterController's mintAction
 const mint_forward_ton_amount = 50000000;
 const mint_total_ton_amount =  100000000;
