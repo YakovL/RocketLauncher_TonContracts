@@ -98,7 +98,7 @@ export class JettonFactory implements Contract {
         });
     }
 
-    async sendDeployPool(provider: ContractProvider, via: Sender, value: bigint, config: PoolFromFactoryConfig) {
+    async sendInitiateNew(provider: ContractProvider, via: Sender, value: bigint, config: PoolFromFactoryConfig) {
         const content = JettonMinter.jettonContentToCell({
             type: config.metadataType,
             uri: config.metadataUri,

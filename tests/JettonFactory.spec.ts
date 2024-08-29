@@ -62,7 +62,7 @@ describe('JettonFactory', () => {
     it('should not deploy Pool when deployer requests too much supply share', async () => {
         const deployerSupplyPercent = await jettonFactoryContract.getMaxDeployerSupplyPercent() + 1n;;
 
-        const result = await jettonFactoryContract.sendDeployPool(deployer.getSender(), 10_000_000n, {
+        const result = await jettonFactoryContract.sendInitiateNew(deployer.getSender(), 10_000_000n, {
             metadataUri,
             metadataType: 1,
             totalSupply: 100_000_000_000n,
