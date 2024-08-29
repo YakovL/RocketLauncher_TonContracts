@@ -79,6 +79,8 @@ describe('Pool', () => {
                 factoryAddress: deployer.address,      // should be factory address in case of deployment by factory
                 jettonWalletAddress: poolJettonWalletAddress,
                 adminAddress: null, // i.e. same as deployer
+                jettonTotalSupply: initPoolJettonBalance * 20n / 19n,
+                jettonAuthorAddress: deployer.address,
             }
         );
 

@@ -13,6 +13,8 @@ export type PoolInitConfig = {
     factoryAddress:      Address
     jettonWalletAddress: Address
     adminAddress:        Address | null
+    jettonTotalSupply:   bigint
+    jettonAuthorAddress: Address
 };
 export type PoolConfig = PoolConfigAddressDefining & PoolInitConfig;
 
@@ -60,6 +62,9 @@ export class Pool implements Contract {
                 .storeAddress(initConfig.factoryAddress)
                 .storeAddress(initConfig.jettonWalletAddress)
                 .storeAddress(initConfig.adminAddress || via.address)
+                // just for sending back to factory
+                .storeCoins(initConfig.jettonTotalSupply)
+                .storeAddress(initConfig.jettonAuthorAddress)
             .endCell(),
         });
     }
