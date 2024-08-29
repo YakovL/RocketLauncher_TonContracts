@@ -79,8 +79,8 @@ slice calculate_contract_address(cell init_state) inline {
     );
 }
 
-;; TODO: estimate and set, check also message mode
-const deploy_pool_fee_estimation = 0;
+;; TODO: optimize Pool.estimatedDeployGasPrice first, cover with autotests, then propagate here; check also message mode
+const deploy_pool_fee_estimation = 10 * 1000000;
 () deploy_pool(
     cell init_state,
     slice address,   ;; = calculate_contract_address(init_state), but since we calc it before, let's not calc it again
