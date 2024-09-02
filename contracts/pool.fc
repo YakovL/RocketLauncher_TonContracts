@@ -69,8 +69,6 @@
 }
 
 ;; == helpers ==
-int are_slices_equal(slice a, slice b) asm "SDEQ";
-
 ;; doesn't account the fee – should be deduced before (ton_amount = amount_sent - fee)
 int get_jetton_amount_for_ton(int ton_amount, int jetton_balance, int ton_balance, int T0) inline {
     return ton_amount * jetton_balance / (ton_balance + T0 + ton_amount);
@@ -242,7 +240,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
 
     ;; somebody sent us jetton – we consider this as a swap (sell jetton) attempt
     if (operation_type == op::transfer_notification()) {
-        if (~ are_slices_equal(sender_address, POOL_JETTON_WALLET_ADDRESS)) {
+        if (~ equal_slices(sender_address, POOL_JETTON_WALLET_ADDRESS)) {
             ;; for simplicity, we don't try to send back as this requires to check
             ;; if the sender is in fact a jetton wallet and if msg_value is enough to revert
             throw(error_pool__notification_from_wrong_address);
@@ -277,7 +275,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
     }
 
     if (operation_type == operation_pool__collect_funds) {
-        if (~ are_slices_equal(sender_address, admin_address)) {
+        if (~ equal_slices(sender_address, admin_address)) {
             throw(error_operation_not_allowed_from_this_address);
         }
 
