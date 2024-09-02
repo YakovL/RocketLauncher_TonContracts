@@ -251,6 +251,14 @@ const mint_total_ton_amount =  100000000;
         );
         slice pool_jetton_wallet_address = calculate_contract_address(pool_jetton_wallet_init_state);
 
+        deploy_pool(
+            pool_init_state, pool_address,
+            total_supply, deployer_supply_percent, minimal_price,
+            fee_per_mille, admin_address,
+            pool_jetton_wallet_address,
+            sender_address,
+            query_id
+        );
         return ();
     }
 
