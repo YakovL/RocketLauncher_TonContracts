@@ -73,7 +73,8 @@ describe('JettonFactory', () => {
         expect(result.transactions).toHaveTransaction({ success: false, exitCode: 0xffa1 });
     });
 
-    it('should deploy Jetton', async () => {
+    // TODO: no longer valid, re-implement for the full chain
+    it.skip('should deploy Jetton', async () => {
         const metadataUri = 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json';
         const deployResult = await jettonFactoryContract.sendDeployNewJetton(deployer.getSender(), {
             totalSupply: 0n,

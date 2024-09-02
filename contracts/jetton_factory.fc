@@ -52,6 +52,18 @@ slice calculate_contract_address(cell init_state) inline {
     .begin_parse();
 }
 
+(cell, slice) calculate_pool_init_state_and_address(
+    cell jetton_metadata,
+    cell pool_code
+) inline {
+        cell pool_init_data = build_pool_init_data(jetton_metadata);
+        cell pool_init_state = build_contract_init_state(pool_code, pool_init_data);
+        return (
+            pool_init_state,
+            calculate_contract_address(pool_init_state)
+        );
+}
+
 () deploy_jetton(cell init_state) impure inline {
     send_raw_message(
         begin_cell()
@@ -205,6 +217,10 @@ const mint_total_ton_amount =  100000000;
         return ();
     }
 
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    slice sender_address = cs~load_msg_addr();
+
     int operation_type = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
     ;; later: maybe load minter_code and wallet_code only when deploying (but always load things like admin_address)
@@ -228,9 +244,7 @@ const mint_total_ton_amount =  100000000;
             build_minter_init_data(jetton_metadata, wallet_code)
         ));
 
-        cell pool_init_data = build_pool_init_data(jetton_metadata);
-        cell pool_init_state = build_contract_init_state(pool_code, pool_init_data);
-        slice pool_address = calculate_contract_address(pool_init_state);
+        (cell pool_init_state, slice pool_address) = calculate_pool_init_state_and_address(jetton_metadata, pool_code);
 
         cell pool_jetton_wallet_init_state = calculate_jetton_wallet_state_init(
             pool_address, minter_address, wallet_code
@@ -244,6 +258,12 @@ const mint_total_ton_amount =  100000000;
         ;; this must be aligned with sendDeployNewJetton
         int total_supply = in_msg_body~load_coins();
         cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
+
+        (_, slice pool_address) = calculate_pool_init_state_and_address(jetton_metadata, pool_code);
+        if (~ equal_slices(pool_address, sender_address)) {
+            throw(error_operation_not_allowed_from_this_address);
+        }
+
         var minter_init_data = build_minter_init_data(jetton_metadata, wallet_code);
         var jetton_init_state = build_contract_init_state(minter_code, minter_init_data);
         deploy_jetton(jetton_init_state);
