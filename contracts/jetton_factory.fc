@@ -199,11 +199,6 @@ const mint_total_ton_amount =  100000000;
 }
 
 ;; == messages ==
-const operation_initiate_new = 1;
-const operation_deploy_jetton = 2;
-
-const error_too_much_deployer_supply_share_requested = 0xffa1;
-
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     ;; accept empty messages (including sending TON to contract balance)
     if (in_msg_body.slice_empty?()) {
@@ -219,13 +214,13 @@ const error_too_much_deployer_supply_share_requested = 0xffa1;
         , int max_deployer_supply_percent
     ) = load_data();
 
-    if (operation_type == operation_initiate_new) {
+    if (operation_type == operation_factory__initiate_new) {
         int total_supply = in_msg_body~load_coins();
         int minimal_price = in_msg_body~load_coins();
         int deployer_supply_percent = in_msg_body~load_coins();
         cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
         if (deployer_supply_percent > max_deployer_supply_percent) {
-            throw(error_too_much_deployer_supply_share_requested);
+            throw(error_factory__too_much_deployer_supply_share_requested);
         }
 
         slice minter_address = calculate_contract_address(build_contract_init_state(
@@ -245,7 +240,7 @@ const error_too_much_deployer_supply_share_requested = 0xffa1;
         return ();
     }
 
-    if (operation_type == operation_deploy_jetton) {
+    if (operation_type == operation_factory__on_pool_deploy) {
         ;; this must be aligned with sendDeployNewJetton
         int total_supply = in_msg_body~load_coins();
         cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'

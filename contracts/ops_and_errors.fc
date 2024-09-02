@@ -2,8 +2,13 @@ const operation_pool__initiate = 101;
 const operation_pool__collect_funds = 102;
 const operation_pool__buy_jetton = 1;
 
+const operation_factory__initiate_new = 1;
+const operation_factory__on_pool_deploy = 2;
+
 const error_pool__already_initiated = 0xfff0;
 const error_pool__not_allowed_before_initiate = 0xfff1;
 const error_pool__notification_from_wrong_address = 0xfff2;
 
 const error_operation_not_allowed_from_this_address = 403;
+
+const error_factory__too_much_deployer_supply_share_requested = 0xffa1;
