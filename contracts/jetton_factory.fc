@@ -64,6 +64,37 @@ slice calculate_contract_address(cell init_state) inline {
         );
 }
 
+cell build_mint_body(
+    int amount,
+    slice to_address,
+    int query_id,
+    ;; recieves op::excesses() on success (see https://blog.ton.org/how-to-shard-your-ton-smart-contract-and-why-studying-the-anatomy-of-tons-jettons#user-story-1-alison)
+    slice response_address
+) inline {
+    return begin_cell()
+        ;; see see JettonMinter.mintMessage
+        .store_uint(op::mint(), 32)
+        .store_uint(query_id, 64)
+        .store_slice(to_address)
+        .store_coins(mint_total_ton_amount)
+        ;; note: minter doesn't seem to read the amount part on op::mint(),
+        ;; but JettonMinter.mintMessage stores it (before ref);
+        ;; not sure if this line is needed at all
+        .store_coins(amount)
+        .store_ref(begin_cell()
+            .store_uint(op::internal_transfer(), 32)
+            .store_uint(0, 64)
+            .store_coins(amount)
+            ;; equivalent of .storeAddress(null) (.store_slice(null) doesn't work; 00 is empty address)
+            .store_uint(0, 2)
+            .store_slice(response_address)
+            .store_coins(mint_forward_ton_amount)
+            ;; equivalent of .storeMaybeRef(null), presumably the same as .store_maybe_ref(null)
+            .store_uint(0, 1)
+        .end_cell())
+    .end_cell();
+}
+
 () deploy_jetton(cell init_state) impure inline {
     send_raw_message(
         begin_cell()
@@ -150,7 +181,7 @@ const mint_total_ton_amount =  100000000;
     int amount,
     slice to_address,
     int query_id,
-    ;; recieves op::excesses() on success (see https://blog.ton.org/how-to-shard-your-ton-smart-contract-and-why-studying-the-anatomy-of-tons-jettons#user-story-1-alison)
+    ;; recieves op::excesses() on success (see build_mint_body)
     slice response_address
 ) impure inline {
     send_raw_message(
@@ -162,27 +193,9 @@ const mint_total_ton_amount =  100000000;
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
             .store_uint(0, 1)                              ;; Maybe (StateInitOrRef)
 
-            ;; body (see JettonMinter.mintMessage)
-            .store_uint(0, 1)                              ;; in-place body (Either Body ^Body)
-            .store_uint(op::mint(), 32)
-            .store_uint(query_id, 64)
-            .store_slice(to_address)
-            .store_coins(mint_total_ton_amount)
-            ;; note: minter doesn't seem to read the amount part on op::mint(),
-            ;; but JettonMinter.mintMessage stores it (before ref);
-            ;; not sure if this line is needed at all
-            .store_coins(amount)
-            .store_ref(begin_cell()
-                .store_uint(op::internal_transfer(), 32)
-                .store_uint(0, 64)
-                .store_coins(amount)
-                ;; equivalent of .storeAddress(null) (.store_slice(null) doesn't work; 00 is empty address)
-                .store_uint(0, 2)
-                .store_slice(response_address)
-                .store_coins(mint_forward_ton_amount)
-                ;; equivalent of .storeMaybeRef(null), presumably the same as .store_maybe_ref(null)
-                .store_uint(0, 1)
-            .end_cell())
+            ;; body (in-place: Either Body ^Body)
+            .store_uint(0, 1)
+            .store_slice(build_mint_body(amount, to_address, query_id, response_address).begin_parse())
         .end_cell(),
 
         0 + 16

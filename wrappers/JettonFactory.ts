@@ -67,7 +67,7 @@ export class JettonFactory implements Contract {
     // must be aligned with jetton_factory.rc
     static ops = {
         initiateNew: 1,
-        deployJetton: 2,
+        onPoolDeployProceedToMinter: 2,
     };
 
     // public methods
@@ -90,7 +90,7 @@ export class JettonFactory implements Contract {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             // must be aligned with jetton_factory.rc (see operation_deploy_jetton)
             body: beginCell()
-                .storeUint(JettonFactory.ops.deployJetton, 32)
+                .storeUint(JettonFactory.ops.onPoolDeployProceedToMinter, 32)
                 .storeUint(query_id, 64)
                 .storeCoins(config.totalSupply)
                 .storeRef(content)
