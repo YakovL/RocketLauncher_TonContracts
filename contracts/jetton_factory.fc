@@ -166,7 +166,7 @@ const deploy_pool_fee_estimation = 10 * 1000000;
             .store_ref(begin_cell()
                 .store_uint(operation_pool__initiate, 32)
                 .store_uint(query_id, 64)
-                .store_coins(total_supply - total_supply * deployer_supply_share_percent ^/ 1000)
+                .store_coins(total_supply - total_supply * deployer_supply_share_percent ^/ 100)
                 .store_coins(total_supply * minimal_price)
                 .store_uint(fee_per_mille, 10)
                 .store_slice(my_address())
