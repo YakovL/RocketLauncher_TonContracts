@@ -64,6 +64,10 @@ slice calculate_contract_address(cell init_state) inline {
         );
 }
 
+;; copied from minterController's mintAction
+const mint_forward_ton_amount = 50000000;
+const mint_total_ton_amount =  100000000;
+
 cell build_mint_body(
     int amount,
     slice to_address,
@@ -95,7 +99,12 @@ cell build_mint_body(
     .end_cell();
 }
 
-() deploy_jetton(cell init_state) impure inline {
+() deploy_jetton_and_mint_to_pool(
+    cell init_state,
+    int pool_supply,
+    slice pool_address,
+    int query_id
+) impure inline {
     send_raw_message(
         begin_cell()
             ;; info = header
@@ -109,11 +118,14 @@ cell build_mint_body(
             .store_uint(1, 1)      ;; serialized in another cell
             .store_ref(init_state) ;; ^StateInit
 
-            ;; body
-            .store_uint(0, 1) ;; in-place body (if adding by ref, switch to 1)
-            ;; if non-empty body is needed: either
-            ;; .store_ref(body)  and change ↑ flag or
-            ;; ..how to add an inline body? .store_slice(begin_parse(body)) ?
+            ;; body (in-place)
+            .store_uint(0, 1)
+            .store_slice(build_mint_body(
+                pool_supply,
+                pool_address,
+                query_id,
+                my_address() ;; factory should recieve op::excesses() on success for second mint to deployer
+            ).begin_parse())
         .end_cell(),
 
         ;; mode 0? mode 64 = carry the remaining value in the new message
@@ -171,10 +183,6 @@ const deploy_pool_fee_estimation = 10 * 1000000;
         0 + 16
     );
 }
-
-;; copied from minterController's mintAction
-const mint_forward_ton_amount = 50000000;
-const mint_total_ton_amount =  100000000;
 
 () request_mint(
     slice jetton_address,
@@ -287,7 +295,12 @@ const mint_total_ton_amount =  100000000;
 
         var minter_init_data = build_minter_init_data(jetton_metadata, wallet_code);
         var jetton_init_state = build_contract_init_state(minter_code, minter_init_data);
-        deploy_jetton(jetton_init_state);
+        deploy_jetton_and_mint_to_pool(
+            jetton_init_state,
+            pool_supply,
+            pool_address,
+            query_id
+        );
         return ();
     }
 
