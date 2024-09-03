@@ -52,7 +52,7 @@ export class Pool implements Contract {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(this.ops.init, 32)
+                .storeUint(Pool.ops.init, 32)
                 .storeUint(0, 64)  // empty query_id
 
                 // must be aligned with parsing ops.init in pool.rc
@@ -71,7 +71,7 @@ export class Pool implements Contract {
         });
     }
 
-    ops = {
+    static ops = {
         // these must be aligned with pool.rc
         init: 101,
         collectFunds: 102,
@@ -87,7 +87,7 @@ export class Pool implements Contract {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(this.ops.buyJetton, 32)
+                .storeUint(Pool.ops.buyJetton, 32)
                 .storeUint(query_id, 64)
             .endCell(),
         });
@@ -121,7 +121,7 @@ export class Pool implements Contract {
             value: valueToEnsureSend,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(this.ops.collectFunds, 32)
+                .storeUint(Pool.ops.collectFunds, 32)
                 .storeUint(query_id, 64)
                 .storeCoins(amountToCollect)
             .endCell(),
