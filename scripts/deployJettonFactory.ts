@@ -11,7 +11,7 @@ export async function run(provider: NetworkProvider) {
     console.log(`feePerMille = ${feePerMille}`);
     console.log(`maxDeployerSupplyPercent = ${maxDeployerSupplyPercent}`);
 
-    const sender = provider.sender()
+    const sender = provider.sender();
     if(!sender.address) {
         throw new Error('deployJettonFactory: deployer address is undefined');
     }
