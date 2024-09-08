@@ -249,7 +249,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
         var received_jetton_amount = in_msg_body~load_coins();
         var jetton_sender_address = in_msg_body~load_msg_addr();
         ;; don't handle notifications on minting (by factory)
-        if (equal_slices(jetton_sender_address, FACTORY_ADDRESS)) {
+        if (jetton_sender_address.preload_uint(2) == 0) {
             return();
         }
 
