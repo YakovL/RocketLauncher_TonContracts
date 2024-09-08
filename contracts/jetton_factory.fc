@@ -89,8 +89,8 @@ cell build_mint_body(
             .store_uint(op::internal_transfer(), 32)
             .store_uint(0, 64)
             .store_coins(amount)
-            ;; equivalent of .storeAddress(null) (.store_slice(null) doesn't work; 00 is empty address)
-            .store_uint(0, 2)
+            ;; jetton_sender_address in pool's handler of transfer_notification
+            .store_slice(my_address())
             .store_slice(response_address)
             .store_coins(mint_forward_ton_amount)
             ;; equivalent of .storeMaybeRef(null), presumably the same as .store_maybe_ref(null)
