@@ -221,6 +221,10 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
 
     if (operation_type == operation_pool__buy_jetton) {
         int available_ton_amount = msg_value - fee_buy_jetton_forward - fee_buy_jetton_tx;
+        if (available_ton_amount <= 0) {
+            ;; TODO: ideally, send them back the remainder
+            throw(error_provided_less_ton_than_minimal_estimated_value);
+        }
 
         int effective_ton_amount = available_ton_amount - available_ton_amount * FEE_PER_MILLE ^/ 1000;
         int jetton_amount_to_send = get_jetton_amount_for_ton(effective_ton_amount, _jetton_balance, _ton_balance, T0);

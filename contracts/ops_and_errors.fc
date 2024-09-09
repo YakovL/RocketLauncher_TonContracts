@@ -10,5 +10,6 @@ const error_pool__not_allowed_before_initiate = 0xfff1;
 const error_pool__notification_from_wrong_address = 0xfff2;
 
 const error_operation_not_allowed_from_this_address = 403;
+const error_provided_less_ton_than_minimal_estimated_value = 407;
 
 const error_factory__too_much_deployer_supply_share_requested = 0xffa1;
