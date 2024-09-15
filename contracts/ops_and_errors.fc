@@ -4,6 +4,7 @@ const operation_pool__buy_jetton = 1;
 
 const operation_factory__initiate_new = 1;
 const operation_factory__on_pool_deploy = 2;
+const operation_factory__upgrade = 111;
 
 const error_pool__already_initiated = 0xfff0;
 const error_pool__not_allowed_before_initiate = 0xfff1;

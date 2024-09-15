@@ -310,6 +310,19 @@ const deploy_pool_fee_estimation = 10 * 1000000;
         return ();
     }
 
+    if (operation_type == operation_factory__upgrade) {
+        if (~ equal_slices(admin_address, sender_address)) {
+            throw(error_operation_not_allowed_from_this_address);
+        }
+
+        ;; this is a minimal implementation; if needed, can be extended via another upgrade,
+        ;; for instance like this: https://github.com/ton-blockchain/ton/blob/master/crypto/smartcont/config-code.fc#L110
+        cell new_code = in_msg_body~load_ref();
+        set_code(new_code);
+
+        return ();
+    }
+
     ;; unknown op-code convention, see https://docs.ton.org/learn/tvm-instructions/tvm-exit-codes
     throw(0xffff);
 }

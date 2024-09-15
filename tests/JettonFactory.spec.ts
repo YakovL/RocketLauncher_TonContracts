@@ -22,10 +22,12 @@ describe('JettonFactory', () => {
 
     let blockchain: Blockchain;
     let deployer: SandboxContract<TreasuryContract>;
+    let nonDeployer: SandboxContract<TreasuryContract>;
     let jettonFactoryContract: SandboxContract<JettonFactory>;
     beforeEach(async () => {
         blockchain = await Blockchain.create();
         deployer = await blockchain.treasury('deployer');
+        nonDeployer = await blockchain.treasury('nonDeployer');
 
         const jettonFactory = JettonFactory.createFromConfig({
             minterCode,
@@ -95,4 +97,19 @@ describe('JettonFactory', () => {
             endStatus: 'active',
         })
     })
+
+    it('should be upgradable by admin (deployer)', async () => {
+        const estimatedValue = 1000_000n; // fails for 500_000n
+        const result = await jettonFactoryContract.sendUpgrade(deployer.getSender(),
+            estimatedValue,
+            await compile('JettonFactory'));
+        expect(result.transactions).not.toHaveTransaction({ success: false });
+    });
+    it('should not be upgradable by non-admin', async () => {
+        const estimatedValue = 1000_000n;
+        const result = await jettonFactoryContract.sendUpgrade(nonDeployer.getSender(),
+            estimatedValue,
+            await compile('JettonFactory'));
+        expect(result.transactions).toHaveTransaction({ success: false });
+    });
 });

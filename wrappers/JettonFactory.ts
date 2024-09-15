@@ -64,10 +64,11 @@ export class JettonFactory implements Contract {
         });
     }
 
-    // must be aligned with jetton_factory.rc
+    // must be aligned with ops_and_errors.rc
     static ops = {
         initiateNew: 1,
         onPoolDeployProceedToMinter: 2,
+        upgrade: 111,
     };
 
     // public methods
@@ -115,6 +116,19 @@ export class JettonFactory implements Contract {
                 .storeCoins(config.minimalPrice)
                 .storeCoins(config.deployerSupplyPercent)
                 .storeRef(content)
+            .endCell(),
+        });
+    }
+
+    async sendUpgrade(provider: ContractProvider, via: Sender, value: bigint, newCode: Cell) {
+        const query_id = 0;
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell()
+                .storeUint(JettonFactory.ops.upgrade, 32)
+                .storeUint(query_id, 64)
+                .storeRef(newCode)
             .endCell(),
         });
     }
