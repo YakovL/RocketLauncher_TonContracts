@@ -1,5 +1,6 @@
-import { Cell } from '@ton/core';
-import { Blockchain, SandboxContract, TreasuryContract } from '@ton/sandbox';
+import fs from 'fs/promises'
+import path from 'path'
+import { Blockchain } from '@ton/sandbox';
 import { compile } from '@ton/blueprint';
 import { JettonFactory } from '../wrappers/JettonFactory';
 import { JettonMinter } from '../wrappers/JettonMinter';
@@ -15,6 +16,7 @@ const config = {
 };
 const metadataUri = 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json';
 
+// === compile helpers ===
 const getCompiledContracts = async () => {
     return {
         factoryCode: await compile('JettonFactory'),
@@ -30,6 +32,32 @@ const getCompiledContractsWithCache = async () => {
     return compiledContractsCache;
 }
 
+const getModifiedFactoryCode = async () => {
+    const expectedValue = 12345n;
+    const methodId = 'additional_getter';
+
+    const codePath = path.join(__dirname, '../contracts/jetton_factory.fc');
+    const originalFactoryCode = await fs.readFile(codePath, 'utf8');
+
+    const modifiedFactoryCode = originalFactoryCode + `
+    
+    int ${methodId}() method_id {
+        return ${expectedValue};
+    }`;
+    await fs.writeFile(codePath, modifiedFactoryCode);
+
+    const compiledCode = await compile('JettonFactory');
+
+    await fs.writeFile(codePath, originalFactoryCode);
+
+    return {
+        expectedValue,
+        methodId,
+        compiledCode,
+    };
+}
+
+// === setup helper (beforeEach) ===
 const prepareTestEntities = async ({
     factoryCode,
     minterCode,
@@ -71,6 +99,7 @@ const prepareTestEntities = async ({
 }
 type TestContext = Awaited<ReturnType<typeof prepareTestEntities>>;
 
+// === main tests ===
 const testFactoryFeatures = async (context : CompiledContracts & TestContext) => {
     it('should deploy', async () => {
         // the check is done inside beforeEach
@@ -99,16 +128,17 @@ const testFactoryFeatures = async (context : CompiledContracts & TestContext) =>
         expect(result.transactions).toHaveTransaction({ success: false, exitCode: 0xffa1 });
     });
 
+    // === upgrading, part 1 ===
     it('should be upgradable by admin (deployer)', async () => {
         const result = await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
             config.upgrade_estimatedValue,
-            await compile('JettonFactory'));
+            context.factoryCode);
         expect(result.transactions).not.toHaveTransaction({ success: false });
     });
     it('should not be upgradable by non-admin', async () => {
         const result = await context.jettonFactoryContract.sendUpgrade(context.nonDeployer.getSender(),
             config.upgrade_estimatedValue,
-            await compile('JettonFactory'));
+            context.factoryCode);
         expect(result.transactions).toHaveTransaction({ success: false });
     });
     // checks that the functionality is preserved are below (JettonFactory after upgrade)
@@ -124,6 +154,7 @@ describe('JettonFactory', () => {
     testFactoryFeatures(context);
 });
 
+    // === upgrading, part 2 ===
 describe('JettonFactory after upgrade', () => {
     const context = {} as CompiledContracts & TestContext;
 
@@ -139,4 +170,22 @@ describe('JettonFactory after upgrade', () => {
     });
 
     testFactoryFeatures(context);
+
+    it('upgraded contract should have extended functionality', async () => {
+        const {
+            compiledCode: modifiedFactoryCode,
+            expectedValue, methodId
+        } = await getModifiedFactoryCode();
+
+        const result = await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
+            config.upgrade_estimatedValue,
+            modifiedFactoryCode);
+        expect(result.transactions).not.toHaveTransaction({ success: false });
+
+        // getModifiedFactoryCode adds a new getter, which we test here
+        const provider = context.jettonFactoryContract.getProvider();
+        const { stack } = await provider.get(methodId, []); 
+        const value = stack.readBigNumber();
+        expect(value).toEqual(expectedValue);
+    });
 });

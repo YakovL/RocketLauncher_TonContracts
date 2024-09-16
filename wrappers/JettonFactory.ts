@@ -137,4 +137,11 @@ export class JettonFactory implements Contract {
         const { stack } = await provider.get("max_deployer_supply_percent", []);
         return stack.readBigNumber();
     }
+
+    /**
+     * This method is intended solely for autotests of upgrading
+     */
+    getProvider(provider: ContractProvider): ContractProvider {
+        return provider;
+    }
 }
