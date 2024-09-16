@@ -2,7 +2,7 @@ import {
     Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode,
     toNano,
 } from '@ton/core';
-import { PoolInitConfig } from './Pool'
+import { PoolInitConfig } from './Pool';
 import { JettonMinter } from './JettonMinter';
 
 export type JettonFactoryConfig = {
@@ -99,9 +99,9 @@ export class JettonFactory implements Contract {
         });
     }
 
-    async sendInitiateNew(provider: ContractProvider, via: Sender, value: bigint, config: PoolFromFactoryConfig) {
+    async sendInitiateNew(provider: ContractProvider, via: Sender, value: bigint, config: Omit<PoolFromFactoryConfig, 'metadataType'>) {
         const content = JettonMinter.jettonContentToCell({
-            type: config.metadataType,
+            type: 1,
             uri: config.metadataUri,
         });
 

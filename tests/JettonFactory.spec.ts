@@ -118,7 +118,6 @@ const testFactoryFeatures = async (context : CompiledContracts & TestContext) =>
 
         const result = await context.jettonFactoryContract.sendInitiateNew(context.deployer.getSender(), bigAmount, {
             metadataUri,
-            metadataType: 1,
             totalSupply: config.totalSupply,
             deployerSupplyPercent,
             minimalPrice: config.minimalPrice,

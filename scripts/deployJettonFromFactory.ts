@@ -4,8 +4,8 @@ import { Address } from '@ton/core';
 
 export async function run(provider: NetworkProvider) {
     // TODO: ask for metadataUri, totalSupply, minimalPrice, and deployerSupplyPercent (and maybe factoryAddress) interactively instead
-    throw 'update factory address if changed, metadataUri, and totalSupply first'
-    const factoryAddress = "EQBcHosKYSwnwNzLw5IUTvuf35tp7i71RgMX7aGPIBe5hlZ7";
+    throw 'update metadataUri, totalSupply, minimalPrice, and deployerSupplyPercent first'
+    const factoryAddress = "UQAKpTPWh6VT2raY3OCWgHPwI7HxyjF5Yc81NdlTVl8kOES0"; // upgradable
     const totalSupply = 0n;
     const deployerSupplyPercent = 0n;
     const minimalPrice = 1n;
@@ -15,7 +15,6 @@ export async function run(provider: NetworkProvider) {
 
     await jettonFactory.sendInitiateNew(provider.sender(), 150_000_000n, {
         totalSupply,
-        metadataType: 1,
         metadataUri,
         deployerSupplyPercent,
         minimalPrice,
