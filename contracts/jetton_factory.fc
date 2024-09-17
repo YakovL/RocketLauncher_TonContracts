@@ -1,12 +1,27 @@
 #include "imports/stdlib.fc";
 
 ;; this must be aligned with the minter's save_data contents (and deployJettonMinter's createFromConfig)
-cell build_minter_init_data(int total_supply, slice admin_address, cell metadata, cell jetton_wallet_code) inline {
+cell build_minter_init_data(cell metadata, cell jetton_wallet_code) inline {
     return begin_cell()
-        .store_coins(total_supply)
-        .store_slice(admin_address)
+        .store_coins(0)             ;; supply before minting
+        .store_slice(my_address())  ;; minter's admin_address should be this contract
         .store_ref(metadata)
         .store_ref(jetton_wallet_code)
+    .end_cell();
+}
+
+;; this must be aligned with the pool's save_data and Pool.poolConfigToCell
+cell build_pool_init_data(cell jetton_metadata) inline {
+    return begin_cell()
+        .store_ref(jetton_metadata)
+        .store_coins(0)    ;; placeholder: jetton_balance
+        .store_coins(0)    ;; initial ton balance is 0
+        .store_coins(0)    ;; placeholder: T0
+        .store_uint(0, 10) ;; placeholder: FEE_PER_MILLE
+        .store_uint(0, 2)  ;; placeholder: FACTORY_ADDRESS
+        .store_uint(0, 2)  ;; placeholder: POOL_JETTON_WALLET_ADDRESS
+        .store_uint(0, 2)  ;; placeholder: admin_address
+        .store_uint(0, 1)  ;; IS_INITED: false
     .end_cell();
 }
 
@@ -27,7 +42,7 @@ cell build_contract_init_state(cell init_code, cell init_data) inline {
 ;; implementation is based on https://docs.ton.org/develop/func/cookbook#generate-internal-address
 ;; and https://github.com/ton-blockchain/token-contract/blob/main/ft/jetton-utils.fc, tested on counter factory
 ;; not sure if anycast is needed and if other workchain ids will be needed in the future
-slice calculate_minter_address(cell init_state) inline {
+slice calculate_contract_address(cell init_state) inline {
     return begin_cell()
         .store_uint(2, 2)          ;; addr_std$10
         .store_uint(0, 1)          ;; anycast nothing
@@ -37,12 +52,65 @@ slice calculate_minter_address(cell init_state) inline {
     .begin_parse();
 }
 
-() deploy_jetton(cell init_state) impure inline {
+(cell, slice) calculate_pool_init_state_and_address(
+    cell jetton_metadata,
+    cell pool_code
+) inline {
+        cell pool_init_data = build_pool_init_data(jetton_metadata);
+        cell pool_init_state = build_contract_init_state(pool_code, pool_init_data);
+        return (
+            pool_init_state,
+            calculate_contract_address(pool_init_state)
+        );
+}
+
+;; copied from minterController's mintAction
+const mint_forward_ton_amount = 50000000;
+const mint_total_ton_amount =  100000000;
+
+cell build_mint_body(
+    int amount,
+    slice to_address,
+    int query_id,
+    ;; recieves op::excesses() on success (see https://blog.ton.org/how-to-shard-your-ton-smart-contract-and-why-studying-the-anatomy-of-tons-jettons#user-story-1-alison)
+    slice response_address
+) inline {
+    return begin_cell()
+        ;; see see JettonMinter.mintMessage
+        .store_uint(op::mint(), 32)
+        .store_uint(query_id, 64)
+        .store_slice(to_address)
+        .store_coins(mint_total_ton_amount)
+        ;; note: minter doesn't seem to read the amount part on op::mint(),
+        ;; but JettonMinter.mintMessage stores it (before ref);
+        ;; not sure if this line is needed at all
+        .store_coins(amount)
+        .store_ref(begin_cell()
+            .store_uint(op::internal_transfer(), 32)
+            .store_uint(0, 64)
+            .store_coins(amount)
+            ;; jetton_sender_address in pool's handler of transfer_notification:
+            ;; to distinguish minting from swapping, we set an empty address in this case
+            .store_uint(0, 2)
+            .store_slice(response_address)
+            .store_coins(mint_forward_ton_amount)
+            ;; equivalent of .storeMaybeRef(null), presumably the same as .store_maybe_ref(null)
+            .store_uint(0, 1)
+        .end_cell())
+    .end_cell();
+}
+
+() deploy_jetton_and_mint_to_pool(
+    cell init_state,
+    int pool_supply,
+    slice pool_address,
+    int query_id
+) impure inline {
     send_raw_message(
         begin_cell()
             ;; info = header
             .store_uint(0x18, 6)
-            .store_slice(calculate_minter_address(init_state))
+            .store_slice(calculate_contract_address(init_state))
             .store_coins(0)        ;; in nano, for now 0 since mode 64 allows to forward TON from the initial msg
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
 
@@ -51,11 +119,14 @@ slice calculate_minter_address(cell init_state) inline {
             .store_uint(1, 1)      ;; serialized in another cell
             .store_ref(init_state) ;; ^StateInit
 
-            ;; body
-            .store_uint(0, 1) ;; in-place body (if adding by ref, switch to 1)
-            ;; if non-empty body is needed: either
-            ;; .store_ref(body)  and change ↑ flag or
-            ;; ..how to add an inline body? .store_slice(begin_parse(body)) ?
+            ;; body (in-place)
+            .store_uint(0, 1)
+            .store_slice(build_mint_body(
+                pool_supply,
+                pool_address,
+                query_id,
+                my_address() ;; factory should recieve op::excesses() on success for second mint to deployer
+            ).begin_parse())
         .end_cell(),
 
         ;; mode 0? mode 64 = carry the remaining value in the new message
@@ -64,16 +135,62 @@ slice calculate_minter_address(cell init_state) inline {
     );
 }
 
-;; copied from minterController's mintAction
-const mint_forward_ton_amount = 50000000;
-const mint_total_ton_amount =  100000000;
+;; TODO: optimize Pool.estimatedDeployGasPrice first, cover with autotests, then propagate here; check also message mode
+const deploy_pool_fee_estimation = 10 * 1000000;
+() deploy_pool(
+    cell init_state,
+    slice address,   ;; = calculate_contract_address(init_state), but since we calc it before, let's not calc it again
+    int total_supply,
+    int deployer_supply_share_percent,
+    int minimal_price,
+    int fee_per_mille,
+    slice admin_address,
+    slice pool_jetton_wallet_address,
+    slice jetton_author_address,
+    int query_id
+) impure inline {
+    send_raw_message(
+        begin_cell()
+            ;; header
+            .store_uint(0x18, 6)
+            .store_slice(address)
+            .store_coins(deploy_pool_fee_estimation)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32)
+
+            ;; init
+            .store_uint(1, 1) ;; non-empty
+            .store_uint(1, 1) ;; serialized in another cell
+            .store_ref(init_state)
+
+            ;; body (deploying pool involves handling body as well)
+            .store_uint(1, 1) ;; by ref (too big for in-place)
+            .store_ref(begin_cell()
+                .store_uint(operation_pool__initiate, 32)
+                .store_uint(query_id, 64)
+                .store_coins(total_supply - total_supply * deployer_supply_share_percent ^/ 100)
+                .store_coins(total_supply * minimal_price)
+                .store_uint(fee_per_mille, 10)
+                .store_slice(my_address())
+                .store_slice(pool_jetton_wallet_address)
+                .store_slice(admin_address)
+                ;; callback values
+                .store_ref(begin_cell()
+                    .store_coins(total_supply)
+                    .store_slice(jetton_author_address)
+                .end_cell())
+            .end_cell())
+        .end_cell(),
+
+        0 + 16
+    );
+}
 
 () request_mint(
     slice jetton_address,
     int amount,
     slice to_address,
     int query_id,
-    ;; recieves op::excesses() on success (see https://blog.ton.org/how-to-shard-your-ton-smart-contract-and-why-studying-the-anatomy-of-tons-jettons#user-story-1-alison)
+    ;; recieves op::excesses() on success (see build_mint_body)
     slice response_address
 ) impure inline {
     send_raw_message(
@@ -85,27 +202,9 @@ const mint_total_ton_amount =  100000000;
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
             .store_uint(0, 1)                              ;; Maybe (StateInitOrRef)
 
-            ;; body (see JettonMinter.mintMessage)
-            .store_uint(0, 1)                              ;; in-place body (Either Body ^Body)
-            .store_uint(op::mint(), 32)
-            .store_uint(query_id, 64)
-            .store_slice(to_address)
-            .store_coins(mint_total_ton_amount)
-            ;; note: minter doesn't seem to read the amount part on op::mint(),
-            ;; but JettonMinter.mintMessage stores it (before ref);
-            ;; not sure if this line is needed at all
-            .store_coins(amount)
-            .store_ref(begin_cell()
-                .store_uint(op::internal_transfer(), 32)
-                .store_uint(0, 64)
-                .store_coins(amount)
-                ;; equivalent of .storeAddress(null) (.store_slice(null) doesn't work; 00 is empty address)
-                .store_uint(0, 2)
-                .store_slice(response_address)
-                .store_coins(mint_forward_ton_amount)
-                ;; equivalent of .storeMaybeRef(null), presumably the same as .store_maybe_ref(null)
-                .store_uint(0, 1)
-            .end_cell())
+            ;; body (in-place: Either Body ^Body)
+            .store_uint(0, 1)
+            .store_slice(build_mint_body(amount, to_address, query_id, response_address).begin_parse())
         .end_cell(),
 
         0 + 16
@@ -115,43 +214,94 @@ const mint_total_ton_amount =  100000000;
 ;; == storage ==
 ;; this must be aligned with jettonFactoryConfigToCell
 (
-    cell, ;; minter_code
-    cell  ;; wallet_code
+    cell  ;; minter_code
+  , cell  ;; wallet_code
+  , cell  ;; pool_code
+  , slice ;; admin_address
+  , int   ;; fee_per_mille
+  , int   ;; max_deployer_supply_percent
 ) load_data() inline {
     slice ds = get_data().begin_parse();
     return (
-        ds~load_ref(), ;; minter_code
-        ds~load_ref()  ;; wallet_code
+        ds~load_ref()      ;; minter_code
+      , ds~load_ref()      ;; wallet_code
+      , ds~load_ref()      ;; pool_code
+      , ds~load_msg_addr() ;; admin_address
+      , ds~load_coins()    ;; fee_per_mille
+      , ds~load_uint(4)    ;; max_deployer_supply_percent
     );
 }
 
 ;; == messages ==
-const operation_deploy_new_jetton = 1;
-
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     ;; accept empty messages (including sending TON to contract balance)
     if (in_msg_body.slice_empty?()) {
         return ();
     }
 
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    slice sender_address = cs~load_msg_addr();
+
     int operation_type = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
     ;; later: maybe load minter_code and wallet_code only when deploying (but always load things like admin_address)
-    (cell minter_code, cell wallet_code) = load_data();
+    (cell minter_code, cell wallet_code, cell pool_code
+        , slice admin_address
+        , int fee_per_mille
+        , int max_deployer_supply_percent
+    ) = load_data();
 
-    ;; deploy new jetton
-    if (operation_type == operation_deploy_new_jetton) {
+    if (operation_type == operation_factory__initiate_new) {
+        int total_supply = in_msg_body~load_coins();
+        int minimal_price = in_msg_body~load_coins();
+        int deployer_supply_percent = in_msg_body~load_coins();
+        cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
+        if (deployer_supply_percent > max_deployer_supply_percent) {
+            throw(error_factory__too_much_deployer_supply_share_requested);
+        }
+
+        slice minter_address = calculate_contract_address(build_contract_init_state(
+            minter_code,
+            build_minter_init_data(jetton_metadata, wallet_code)
+        ));
+
+        (cell pool_init_state, slice pool_address) = calculate_pool_init_state_and_address(jetton_metadata, pool_code);
+
+        cell pool_jetton_wallet_init_state = calculate_jetton_wallet_state_init(
+            pool_address, minter_address, wallet_code
+        );
+        slice pool_jetton_wallet_address = calculate_contract_address(pool_jetton_wallet_init_state);
+
+        deploy_pool(
+            pool_init_state, pool_address,
+            total_supply, deployer_supply_percent, minimal_price,
+            fee_per_mille, admin_address,
+            pool_jetton_wallet_address,
+            sender_address,
+            query_id
+        );
+        return ();
+    }
+
+    if (operation_type == operation_factory__on_pool_deploy) {
         ;; this must be aligned with sendDeployNewJetton
         int total_supply = in_msg_body~load_coins();
         cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
-        var minter_init_data = build_minter_init_data(
-            0,
-            my_address(),    ;; set minter's admin_address to address of this contract
-            jetton_metadata,
-            wallet_code
-        );
+
+        (_, slice pool_address) = calculate_pool_init_state_and_address(jetton_metadata, pool_code);
+        if (~ equal_slices(pool_address, sender_address)) {
+            throw(error_operation_not_allowed_from_this_address);
+        }
+
+        var minter_init_data = build_minter_init_data(jetton_metadata, wallet_code);
         var jetton_init_state = build_contract_init_state(minter_code, minter_init_data);
-        deploy_jetton(jetton_init_state);
+        deploy_jetton_and_mint_to_pool(
+            jetton_init_state,
+            pool_supply,
+            pool_address,
+            query_id
+        );
         return ();
     }
 
@@ -160,6 +310,27 @@ const operation_deploy_new_jetton = 1;
         return ();
     }
 
+    if (operation_type == operation_factory__upgrade) {
+        if (~ equal_slices(admin_address, sender_address)) {
+            throw(error_operation_not_allowed_from_this_address);
+        }
+
+        ;; this is a minimal implementation; if needed, can be extended via another upgrade,
+        ;; for instance like this: https://github.com/ton-blockchain/ton/blob/master/crypto/smartcont/config-code.fc#L110
+        cell new_code = in_msg_body~load_ref();
+        set_code(new_code);
+
+        return ();
+    }
+
     ;; unknown op-code convention, see https://docs.ton.org/learn/tvm-instructions/tvm-exit-codes
     throw(0xffff);
+}
+
+;; == getters ==
+int max_deployer_supply_percent() method_id {
+    (_, _, _, _, _,
+        int _max_deployer_supply_percent
+    ) = load_data();
+    return _max_deployer_supply_percent;
 }

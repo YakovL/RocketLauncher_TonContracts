@@ -9,7 +9,7 @@
 ;; or from the returned TON amount (when converting Jetton → TON).
 
 ;; == storage ==
-;; must be aligned with save_data, poolConfigToCell, handling operation_initiate
+;; must be aligned with save_data, poolConfigToCell, handling operation_pool__initiate
 (
     ;; -- address-defining --
     cell, ;; JETTON_METADATA (defines minter address and can be passed to factory for further deploy)
@@ -30,9 +30,9 @@
         ds~load_ref(),     ;; JETTON_METADATA
 
         ;; 2^100 > 10^30, 10^21 with decimals: 9 – more than enough
-        ds~load_uint(100)  ;; pool jetton balance
-      , ds~load_uint(100)  ;; pool TON balance
-      , ds~load_uint(100)  ;; T0
+        ds~load_coins()    ;; pool jetton balance
+      , ds~load_coins()    ;; pool TON balance
+      , ds~load_coins()    ;; T0
       , ds~load_uint(10)   ;; FEE_PER_MILLE
       , ds~load_msg_addr() ;; FACTORY_ADDRESS
       , ds~load_msg_addr() ;; POOL_JETTON_WALLET_ADDRESS
@@ -41,7 +41,7 @@
     );
 }
 
-;; must be aligned with load_data, poolConfigToCell, handling operation_initiate
+;; must be aligned with load_data, poolConfigToCell, handling operation_pool__initiate, and also build_pool_init_data
 ;; only lower-case bits are supposed to be updatable
 () save_data(
     cell JETTON_METADATA,
@@ -57,9 +57,9 @@
 ) impure inline {
     set_data(begin_cell()
         .store_ref(JETTON_METADATA)
-        .store_uint(jetton_balance, 100)
-        .store_uint(ton_balance, 100)
-        .store_uint(T0, 100)
+        .store_coins(jetton_balance)
+        .store_coins(ton_balance)
+        .store_coins(T0)
         .store_uint(FEE_PER_MILLE, 10)
         .store_slice(FACTORY_ADDRESS)
         .store_slice(POOL_JETTON_WALLET_ADDRESS)
@@ -69,8 +69,6 @@
 }
 
 ;; == helpers ==
-int are_slices_equal(slice a, slice b) asm "SDEQ";
-
 ;; doesn't account the fee – should be deduced before (ton_amount = amount_sent - fee)
 int get_jetton_amount_for_ton(int ton_amount, int jetton_balance, int ton_balance, int T0) inline {
     return ton_amount * jetton_balance / (ton_balance + T0 + ton_amount);
@@ -154,15 +152,6 @@ const send_jetton_forward_further_amount = 1000000;
 }
 
 ;; == messages ==
-const operation_initiate = 101;
-const operation_collect_funds = 102;
-const operation_buy_jetton = 1;
-
-const error_already_initiated = 0xfff0;
-const error_not_allowed_before_initiate = 0xfff1;
-const error_notification_from_wrong_address = 0xfff2;
-const error_operation_not_allowed = 403;
-
 ;; these are estimated in tests; not using exact numbers to update less frequently
 const fee_buy_jetton_forward = 47500000;    ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
 const fee_buy_jetton_tx = 2500000;          ;; computation fees etc
@@ -206,28 +195,36 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
     var should_update_data_before_return = 0;
 
     ;; handle initiate and attempts to handle other ops before initiation
-    if (operation_type == operation_initiate) {
+    if (operation_type == operation_pool__initiate) {
         if (~ IS_INITED) {
             ;; the parsing must be aligned with sendDeploy
-            _jetton_balance = in_msg_body~load_uint(100);
-            T0 = in_msg_body~load_uint(100);
+            _jetton_balance = in_msg_body~load_coins();
+            T0 = in_msg_body~load_coins();
             FEE_PER_MILLE = in_msg_body~load_uint(10);
             FACTORY_ADDRESS = in_msg_body~load_msg_addr();
             POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
-            admin_address = sender_address;
+            admin_address = in_msg_body~load_msg_addr();
             IS_INITED = 1;
+
+            var forward_data_additions = in_msg_body~load_ref().begin_parse();
+            int total_supply = forward_data_additions~load_coins();
+            slice jetton_author_address = forward_data_additions~load_msg_addr();
 
             should_update_data_before_return = 1;
         } else {
-            throw(error_already_initiated);
+            throw(error_pool__already_initiated);
         }
     }
-    if ((operation_type != operation_initiate) & (IS_INITED != 1)) {
-        throw(error_not_allowed_before_initiate);
+    if ((operation_type != operation_pool__initiate) & (IS_INITED != 1)) {
+        throw(error_pool__not_allowed_before_initiate);
     }
 
-    if (operation_type == operation_buy_jetton) {
+    if (operation_type == operation_pool__buy_jetton) {
         int available_ton_amount = msg_value - fee_buy_jetton_forward - fee_buy_jetton_tx;
+        if (available_ton_amount <= 0) {
+            ;; TODO: ideally, send them back the remainder
+            throw(error_provided_less_ton_than_minimal_estimated_value);
+        }
 
         int effective_ton_amount = available_ton_amount - available_ton_amount * FEE_PER_MILLE ^/ 1000;
         int jetton_amount_to_send = get_jetton_amount_for_ton(effective_ton_amount, _jetton_balance, _ton_balance, T0);
@@ -247,14 +244,18 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
 
     ;; somebody sent us jetton – we consider this as a swap (sell jetton) attempt
     if (operation_type == op::transfer_notification()) {
-        if (~ are_slices_equal(sender_address, POOL_JETTON_WALLET_ADDRESS)) {
+        if (~ equal_slices(sender_address, POOL_JETTON_WALLET_ADDRESS)) {
             ;; for simplicity, we don't try to send back as this requires to check
             ;; if the sender is in fact a jetton wallet and if msg_value is enough to revert
-            throw(error_notification_from_wrong_address);
+            throw(error_pool__notification_from_wrong_address);
         }
 
         var received_jetton_amount = in_msg_body~load_coins();
         var jetton_sender_address = in_msg_body~load_msg_addr();
+        ;; don't handle notifications on minting (by factory)
+        if (jetton_sender_address.preload_uint(2) == 0) {
+            return();
+        }
 
         int ton_swap_amount = get_ton_amount_for_jetton(received_jetton_amount, _jetton_balance, _ton_balance, T0);
         int effective_ton_amount = ton_swap_amount - ton_swap_amount * FEE_PER_MILLE ^/ 1000;
@@ -281,9 +282,9 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
         should_update_data_before_return = 1;
     }
 
-    if (operation_type == operation_collect_funds) {
-        if (~ are_slices_equal(sender_address, admin_address)) {
-            throw(error_operation_not_allowed);
+    if (operation_type == operation_pool__collect_funds) {
+        if (~ equal_slices(sender_address, admin_address)) {
+            throw(error_operation_not_allowed_from_this_address);
         }
 
         ;; We treat msg_value in a manner so that it doesn't affect the result,

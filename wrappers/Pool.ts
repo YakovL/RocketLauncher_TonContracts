@@ -12,6 +12,9 @@ export type PoolInitConfig = {
     feePerMille:         number
     factoryAddress:      Address
     jettonWalletAddress: Address
+    adminAddress:        Address | null
+    jettonTotalSupply:   bigint
+    jettonAuthorAddress: Address
 };
 export type PoolConfig = PoolConfigAddressDefining & PoolInitConfig;
 
@@ -22,13 +25,13 @@ export class Pool implements Contract {
         return new Pool(address);
     }
 
-    // must be aligned with load_data, save_data in pool.rc
+    // must be aligned with load_data, save_data in pool.rc, and build_pool_init_data in factory.rc
     static poolConfigToCell(config: PoolConfigAddressDefining): Cell {
         return beginCell()
             .storeRef(config.poolJettonContent)
-            .storeUint(0, 100) // placeholder: jetton_balance
-            .storeUint(0, 100) // initial ton balance is 0
-            .storeUint(0, 100) // placeholder: T0
+            .storeCoins(0)     // placeholder: jetton_balance
+            .storeCoins(0)     // initial ton balance is 0
+            .storeCoins(0)     // placeholder: T0
             .storeUint(0, 10)  // placeholder: FEE_PER_MILLE
             .storeUint(0, 2)   // placeholder: FACTORY_ADDRESS
             .storeUint(0, 2)   // placeholder: POOL_JETTON_WALLET_ADDRESS
@@ -49,20 +52,26 @@ export class Pool implements Contract {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(this.ops.init, 32)
+                .storeUint(Pool.ops.init, 32)
                 .storeUint(0, 64)  // empty query_id
 
                 // must be aligned with parsing ops.init in pool.rc
-                .storeUint(initConfig.poolJettonBalance, 100)
-                .storeUint(initConfig.poolJettonBalance * initConfig.minimalPrice, 100) // T0
+                .storeCoins(initConfig.poolJettonBalance)
+                .storeCoins(initConfig.poolJettonBalance * initConfig.minimalPrice) // T0
                 .storeUint(initConfig.feePerMille, 10)
                 .storeAddress(initConfig.factoryAddress)
                 .storeAddress(initConfig.jettonWalletAddress)
+                .storeAddress(initConfig.adminAddress || via.address)
+                // just for sending back to factory
+                .storeRef(beginCell()
+                    .storeCoins(initConfig.jettonTotalSupply)
+                    .storeAddress(initConfig.jettonAuthorAddress)
+                .endCell())
             .endCell(),
         });
     }
 
-    ops = {
+    static ops = {
         // these must be aligned with pool.rc
         init: 101,
         collectFunds: 102,
@@ -78,7 +87,7 @@ export class Pool implements Contract {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(this.ops.buyJetton, 32)
+                .storeUint(Pool.ops.buyJetton, 32)
                 .storeUint(query_id, 64)
             .endCell(),
         });
@@ -112,7 +121,7 @@ export class Pool implements Contract {
             value: valueToEnsureSend,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell()
-                .storeUint(this.ops.collectFunds, 32)
+                .storeUint(Pool.ops.collectFunds, 32)
                 .storeUint(query_id, 64)
                 .storeCoins(amountToCollect)
             .endCell(),

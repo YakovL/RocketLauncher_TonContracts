@@ -3,17 +3,20 @@ import { NetworkProvider } from '@ton/blueprint';
 import { Address } from '@ton/core';
 
 export async function run(provider: NetworkProvider) {
-    // TODO: ask for metadataUri and totalSupply (and maybe factoryAddress) interactively
-    throw 'update factory address if changed, metadataUri, and totalSupply first'
-    const factoryAddress = "EQBcHosKYSwnwNzLw5IUTvuf35tp7i71RgMX7aGPIBe5hlZ7";
+    // TODO: ask for metadataUri, totalSupply, minimalPrice, and deployerSupplyPercent (and maybe factoryAddress) interactively instead
+    throw 'update metadataUri, totalSupply, minimalPrice, and deployerSupplyPercent first'
+    const factoryAddress = "UQAKpTPWh6VT2raY3OCWgHPwI7HxyjF5Yc81NdlTVl8kOES0"; // upgradable
     const totalSupply = 0n;
+    const deployerSupplyPercent = 0n;
+    const minimalPrice = 1n;
     const metadataUri = '';
 
     const jettonFactory = provider.open(JettonFactory.createFromAddress(Address.parse(factoryAddress)));
 
-    await jettonFactory.sendDeployNewJetton(provider.sender(), {
+    await jettonFactory.sendInitiateNew(provider.sender(), 150_000_000n, {
         totalSupply,
-        metadataType: 1,
         metadataUri,
-    })
+        deployerSupplyPercent,
+        minimalPrice,
+    });
 }
