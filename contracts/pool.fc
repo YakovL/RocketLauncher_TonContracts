@@ -77,6 +77,9 @@ int get_jetton_amount_for_ton(int ton_amount, int jetton_balance, int ton_balanc
 int get_ton_amount_for_jetton(int jetton_amount, int jetton_balance, int ton_balance, int T0) inline {
     return jetton_amount * (ton_balance + T0) / (jetton_balance + jetton_amount);
 }
+int deduce_amm_fee(int ton_amount, int fee_per_mille) inline {
+    return ton_amount - ton_amount * fee_per_mille ^/ 1000;
+}
 
 const send_jetton_forward_further_amount = 1000000;
 
@@ -226,7 +229,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
             throw(error_provided_less_ton_than_minimal_estimated_value);
         }
 
-        int effective_ton_amount = available_ton_amount - available_ton_amount * FEE_PER_MILLE ^/ 1000;
+        int effective_ton_amount = deduce_amm_fee(available_ton_amount, FEE_PER_MILLE);
         int jetton_amount_to_send = get_jetton_amount_for_ton(effective_ton_amount, _jetton_balance, _ton_balance, T0);
 
         send_jetton(
@@ -258,7 +261,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
         }
 
         int ton_swap_amount = get_ton_amount_for_jetton(received_jetton_amount, _jetton_balance, _ton_balance, T0);
-        int effective_ton_amount = ton_swap_amount - ton_swap_amount * FEE_PER_MILLE ^/ 1000;
+        int effective_ton_amount = deduce_amm_fee(ton_swap_amount, FEE_PER_MILLE);
 
         ;; effective_ton_amount <= ton_swap_amount <= _ton_balance
         ;; always, so we can send effective_ton_amount and deduce it from _ton_balance
