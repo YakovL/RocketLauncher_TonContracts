@@ -200,13 +200,40 @@ describe('Pool', () => {
     it('should return correct exchange estimations', async () => {
         const T0 = jettonMinPrice * initPoolJettonBalance;
         // amountFactor and partFactor are arbitrary, may use random instead
-        const amountFactor = 100n;
+        // ..that is, except for the back-conversion test where factors less than 1000
+        //  lead to rounding of estimatedJettonAmount that's too rough (99.5 → 99)
+        const amountFactor = 1000n;
         const tonAmountToSwap = amountFactor * jettonMinPrice;
+        // how much Jetton will I get for .. TON?
         const estimatedJettonAmount = await poolContract.getEstimatedJettonForTon(tonAmountToSwap);
 
         expect(estimatedJettonAmount).toBeLessThan(amountFactor);
         const effectiveTonAmount = tonAmountToSwap - tonAmountToSwap * BigInt(feePerMille) / 1000n;
         expect(estimatedJettonAmount).toEqual(effectiveTonAmount * initPoolJettonBalance / (T0 + effectiveTonAmount));
+
+        // how much TON should I provide to get .. Jetton?
+        const estimatedRequiredTonAmount = - await poolContract.getEstimatedTonForJetton(- estimatedJettonAmount);
+        const manuallyEstimatedRequiredTonAmount = tonAmountToSwap - 2n * tonAmountToSwap * BigInt(feePerMille) / 1000n
+            + tonAmountToSwap * BigInt(feePerMille) / 1000n * BigInt(feePerMille) / 1000n;
+        const diff = estimatedRequiredTonAmount - manuallyEstimatedRequiredTonAmount;
+        const absDiff = diff > 0n ? diff : - diff;
+        // that is, when amountFactor is big enough (see above)
+        expect(absDiff).toBeLessThan(manuallyEstimatedRequiredTonAmount / 1000n);
+
+        // the getter should fail for amount that's not accessible:
+        let hasFailed = false;
+        try {
+            await poolContract.getEstimatedTonForJetton(- initPoolJettonBalance + 1n);
+        } catch (error) {
+            hasFailed = true;
+        }
+        expect(hasFailed).toBe(false);
+        try {
+            await poolContract.getEstimatedTonForJetton(- initPoolJettonBalance);
+        } catch (error) {
+            hasFailed = true;
+        }
+        expect(hasFailed).toBe(true);
 
         await poolContract.sendBuyJetton(deployer.getSender(), tonAmountToSwap);
 
@@ -219,6 +246,7 @@ describe('Pool', () => {
         const partFactor = 2n;
         const userBalance = initPoolJettonBalance - newJettonBalance;
         const jettonAmountToSwap = userBalance / partFactor;
+        // how much TON will I get for .. Jetton?
         const estimatedTonAmount = await poolContract.getEstimatedTonForJetton(jettonAmountToSwap);
 
         expect(estimatedTonAmount).toBeLessThan(tonAmountToSwap / partFactor);
@@ -227,6 +255,8 @@ describe('Pool', () => {
         // JS rounding of / 1000n doesn't always round up, which we do in the contract
         expect(estimatedTonAmount).toBeLessThanOrEqual(effectiveSwapTonAmount);
         expect(estimatedTonAmount).toBeGreaterThanOrEqual(effectiveSwapTonAmount - 1n);
+
+        // TODO: test "how much Jetton should I provide to get .. TON?" as well (including the negative scenario)
     });
 
     it('should allow admin to collect funds', async () => {
