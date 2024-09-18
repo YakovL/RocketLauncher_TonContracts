@@ -103,8 +103,29 @@ export class Pool implements Contract {
         return stack.readBigNumber();
     }
 
+    async getVirtualJettonBalance(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("jetton_balance", []);
+        return stack.readBigNumber();
+    }
+
     async getBuyJettonFixedFee(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("buy_jetton_fixed_fee", []);
+        return stack.readBigNumber();
+    }
+
+    async getEstimatedJettonForTon(provider: ContractProvider, tonAmount: bigint): Promise<bigint> {
+        const { stack } = await provider.get("estimate_jetton_for_ton", [{
+            type: 'int',
+            value: tonAmount
+        }]);
+        return stack.readBigNumber();
+    }
+
+    async getEstimatedTonForJetton(provider: ContractProvider, jettonAmount: bigint): Promise<bigint> {
+        const { stack } = await provider.get("estimated_ton_for_jetton", [{
+            type: 'int',
+            value: jettonAmount
+        }]);
         return stack.readBigNumber();
     }
 

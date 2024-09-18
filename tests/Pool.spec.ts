@@ -197,6 +197,38 @@ describe('Pool', () => {
             .toBeGreaterThanOrEqual(poolVirtualTonBalanceAfterSell - poolVirtualTonBalanceBeforeSell);
     });
 
+    it('should return correct exchange estimations', async () => {
+        const T0 = jettonMinPrice * initPoolJettonBalance;
+        // amountFactor and partFactor are arbitrary, may use random instead
+        const amountFactor = 100n;
+        const tonAmountToSwap = amountFactor * jettonMinPrice;
+        const estimatedJettonAmount = await poolContract.getEstimatedJettonForTon(tonAmountToSwap);
+
+        expect(estimatedJettonAmount).toBeLessThan(amountFactor);
+        const effectiveTonAmount = tonAmountToSwap - tonAmountToSwap * BigInt(feePerMille) / 1000n;
+        expect(estimatedJettonAmount).toEqual(effectiveTonAmount * initPoolJettonBalance / (T0 + effectiveTonAmount));
+
+        await poolContract.sendBuyJetton(deployer.getSender(), tonAmountToSwap);
+
+        const newJettonBalance = await poolContract.getVirtualJettonBalance();
+        const newTonBalance = await poolContract.getVirtualTonBalance();
+        // due to tx fees, estimatedJettonAmount is less than what the user really gets
+        expect(newJettonBalance).toBeGreaterThan(initPoolJettonBalance - estimatedJettonAmount);
+        expect(newTonBalance).toBeLessThan(tonAmountToSwap);
+
+        const partFactor = 2n;
+        const userBalance = initPoolJettonBalance - newJettonBalance;
+        const jettonAmountToSwap = userBalance / partFactor;
+        const estimatedTonAmount = await poolContract.getEstimatedTonForJetton(jettonAmountToSwap);
+
+        expect(estimatedTonAmount).toBeLessThan(tonAmountToSwap / partFactor);
+        const expectedSwapTonAmount = jettonAmountToSwap * (newTonBalance + T0) / (newJettonBalance + jettonAmountToSwap);
+        const effectiveSwapTonAmount = expectedSwapTonAmount - expectedSwapTonAmount * BigInt(feePerMille) / 1000n;
+        // JS rounding of / 1000n doesn't always round up, which we do in the contract
+        expect(estimatedTonAmount).toBeLessThanOrEqual(effectiveSwapTonAmount);
+        expect(estimatedTonAmount).toBeGreaterThanOrEqual(effectiveSwapTonAmount - 1n);
+    });
+
     it('should allow admin to collect funds', async () => {
         // ensure pool has some TON
         const additionalAmount = 2_000_000_000n;
