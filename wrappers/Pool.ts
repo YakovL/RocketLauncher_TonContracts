@@ -132,4 +132,11 @@ export class Pool implements Contract {
         const { stack } = await provider.get("collectable_funds_amount", []);
         return stack.readBigNumber();
     }
+
+    /**
+     * This method is intended solely for autotests of upgrading
+     */
+    getProvider(provider: ContractProvider): ContractProvider {
+        return provider;
+    }
 }

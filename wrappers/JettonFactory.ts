@@ -120,7 +120,9 @@ export class JettonFactory implements Contract {
         });
     }
 
-    async sendUpgrade(provider: ContractProvider, via: Sender, value: bigint, newCode: Cell) {
+    async sendUpgrade(provider: ContractProvider, via: Sender, value: bigint, newCode: Cell, options: {
+        newPoolCode?: Cell
+    }) {
         const query_id = 0;
         await provider.internal(via, {
             value,
@@ -129,6 +131,7 @@ export class JettonFactory implements Contract {
                 .storeUint(JettonFactory.ops.upgrade, 32)
                 .storeUint(query_id, 64)
                 .storeRef(newCode)
+                .storeMaybeRef(options.newPoolCode)
             .endCell(),
         });
     }

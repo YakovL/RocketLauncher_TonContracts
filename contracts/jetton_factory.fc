@@ -212,7 +212,7 @@ const deploy_pool_fee_estimation = 10 * 1000000;
 }
 
 ;; == storage ==
-;; this must be aligned with jettonFactoryConfigToCell
+;; this must be aligned with set_data in upgrading and jettonFactoryConfigToCell
 (
     cell  ;; minter_code
   , cell  ;; wallet_code
@@ -319,6 +319,18 @@ const deploy_pool_fee_estimation = 10 * 1000000;
         ;; for instance like this: https://github.com/ton-blockchain/ton/blob/master/crypto/smartcont/config-code.fc#L110
         cell new_code = in_msg_body~load_ref();
         set_code(new_code);
+        cell new_pool_code = in_msg_body~load_maybe_ref();
+        if (~ new_pool_code.cell_null?()) {
+            ;; this must be aligned with load_data
+            set_data(begin_cell()
+                .store_ref(minter_code)
+                .store_ref(wallet_code)
+                .store_ref(new_pool_code) ;; changed bit
+                .store_slice(admin_address)
+                .store_coins(fee_per_mille)
+                .store_uint(max_deployer_supply_percent, 4)
+            .end_cell());
+        }
 
         return ();
     }

@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { Blockchain } from '@ton/sandbox';
+import { flattenTransaction } from '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 import { JettonFactory } from '../wrappers/JettonFactory';
 import { JettonMinter } from '../wrappers/JettonMinter';
@@ -9,6 +10,7 @@ import '@ton/test-utils';
 
 const config = {
     upgrade_estimatedValue: 1000_000n, // fails for 500_000n
+    upgradeWithNewPool_estimatedValue: 1500_000n, // fails for 1_000_000n
 
     // normal values, far from edge cases
     totalSupply: 100_000_000_000n,
@@ -32,11 +34,11 @@ const getCompiledContractsWithCache = async () => {
     return compiledContractsCache;
 }
 
-const getModifiedFactoryCode = async () => {
+const getModifiedContractCode = async (filePath: 'jetton_factory.fc' | 'pool.fc') => {
     const expectedValue = 12345n;
     const methodId = 'additional_getter';
 
-    const codePath = path.join(__dirname, '../contracts/jetton_factory.fc');
+    const codePath = path.join(__dirname, `../contracts/${filePath}`);
     const originalFactoryCode = await fs.readFile(codePath, 'utf8');
 
     const modifiedFactoryCode = originalFactoryCode + `
@@ -46,7 +48,9 @@ const getModifiedFactoryCode = async () => {
     }`;
     await fs.writeFile(codePath, modifiedFactoryCode);
 
-    const compiledCode = await compile('JettonFactory');
+    const wrapperName = filePath == 'jetton_factory.fc' ? 'JettonFactory'
+        : 'Pool'
+    const compiledCode = await compile(wrapperName);
 
     await fs.writeFile(codePath, originalFactoryCode);
 
@@ -131,13 +135,13 @@ const testFactoryFeatures = async (context : CompiledContracts & TestContext) =>
     it('should be upgradable by admin (deployer)', async () => {
         const result = await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
             config.upgrade_estimatedValue,
-            context.factoryCode);
+            context.factoryCode, {});
         expect(result.transactions).not.toHaveTransaction({ success: false });
     });
     it('should not be upgradable by non-admin', async () => {
         const result = await context.jettonFactoryContract.sendUpgrade(context.nonDeployer.getSender(),
             config.upgrade_estimatedValue,
-            context.factoryCode);
+            context.factoryCode, {});
         expect(result.transactions).toHaveTransaction({ success: false });
     });
     // checks that the functionality is preserved are below (JettonFactory after upgrade)
@@ -153,7 +157,7 @@ describe('JettonFactory', () => {
     testFactoryFeatures(context);
 });
 
-    // === upgrading, part 2 ===
+// === upgrading, part 2 ===
 describe('JettonFactory after upgrade', () => {
     const context = {} as CompiledContracts & TestContext;
 
@@ -164,7 +168,7 @@ describe('JettonFactory after upgrade', () => {
 
         await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
             config.upgrade_estimatedValue,
-            context.factoryCode // i.e. the same as before
+            context.factoryCode, {} // i.e. the same as before
         );
     });
 
@@ -174,15 +178,51 @@ describe('JettonFactory after upgrade', () => {
         const {
             compiledCode: modifiedFactoryCode,
             expectedValue, methodId
-        } = await getModifiedFactoryCode();
+        } = await getModifiedContractCode('jetton_factory.fc');
 
         const result = await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
             config.upgrade_estimatedValue,
-            modifiedFactoryCode);
+            modifiedFactoryCode, {});
         expect(result.transactions).not.toHaveTransaction({ success: false });
 
         // getModifiedFactoryCode adds a new getter, which we test here
         const provider = context.jettonFactoryContract.getProvider();
+        const { stack } = await provider.get(methodId, []); 
+        const value = stack.readBigNumber();
+        expect(value).toEqual(expectedValue);
+    });
+
+    it('can upgrade pool code and it has to have extended functionality in that case', async () => {
+        const {
+            compiledCode: newPoolCode,
+            expectedValue, methodId
+        } = await getModifiedContractCode('pool.fc');
+
+        const upgradeResult = await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
+            config.upgradeWithNewPool_estimatedValue,
+            context.factoryCode, {
+                newPoolCode
+            });
+        expect(upgradeResult.transactions).not.toHaveTransaction({ success: false });
+
+        const bigAmount = 100_000_000_000n;
+        const initiateNewResult = await context.jettonFactoryContract.sendInitiateNew(context.deployer.getSender(), bigAmount, {
+            ...config,
+            metadataUri,
+            deployerSupplyPercent: 0n,
+        });
+        expect(initiateNewResult.transactions).not.toHaveTransaction({ success: false });
+        expect(initiateNewResult.transactions).toHaveTransaction({
+            op: Pool.ops.init,
+            deploy: true,
+        });
+
+        const txPoolDeploy = initiateNewResult.transactions.find(t => flattenTransaction(t).op === Pool.ops.init);
+        const poolWalletAddress = flattenTransaction(txPoolDeploy!).to!;
+        const poolContract = context.blockchain.openContract(Pool.createFromAddress(poolWalletAddress));
+
+        // getModifiedFactoryCode adds a new getter, which we test here
+        const provider = poolContract.getProvider();
         const { stack } = await provider.get(methodId, []); 
         const value = stack.readBigNumber();
         expect(value).toEqual(expectedValue);
