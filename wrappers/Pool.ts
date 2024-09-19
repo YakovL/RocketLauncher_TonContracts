@@ -114,7 +114,7 @@ export class Pool implements Contract {
     }
 
     async getEstimatedJettonForTon(provider: ContractProvider, tonAmount: bigint): Promise<bigint> {
-        const { stack } = await provider.get("estimate_jetton_for_ton", [{
+        const { stack } = await provider.get("estimated_jetton_for_ton", [{
             type: 'int',
             value: tonAmount
         }]);

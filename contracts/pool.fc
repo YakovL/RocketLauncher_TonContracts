@@ -362,7 +362,7 @@ int estimated_ton_for_jetton(int jetton_amount) method_id {
     return deduce_amm_fee(ton_swap_amount, FEE_PER_MILLE);
 }
 
-int estimate_jetton_for_ton(int ton_amount) method_id {
+int estimated_jetton_for_ton(int ton_amount) method_id {
     var (_, _jetton_balance, _ton_balance, T0, FEE_PER_MILLE, _, _, _, _) = load_data();
 
     int effective_ton_amount = deduce_amm_fee(ton_amount, FEE_PER_MILLE);
