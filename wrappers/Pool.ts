@@ -129,12 +129,24 @@ export class Pool implements Contract {
         return stack.readBigNumber();
     }
 
+    // we can hardcode this value until we change it once on the contracts side
+    async getFeePerMille(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("fee_per_mille", []);
+        return stack.readBigNumber();
+    }
+
     readonly errorAmountNotAvailable = 'amount_not_available';
     readonly contractErrorAmountNotAvailable = 0xfff3;
 
     async getEstimatedRequiredTonForJetton(provider: ContractProvider, jettonAmount: bigint) {
+        const feePerMille = await this.getFeePerMille(provider);
         try {
-            return -(await this.getEstimatedTonForJetton(provider, -jettonAmount))
+            const amount = -(await this.getEstimatedTonForJetton(provider, -jettonAmount));
+
+            // getEstimatedTonForJetton returns amount = AMM_amount * (1 - fee)
+            // while we have to compensate further fees by dividing AMM_amount by (1 - fee),
+            // i.e. we need amount/(1 - fee)^2, which we estimate as amount*(1 + 2*fee)
+            return amount + amount * 2n * feePerMille / 1000n;
         } catch (error: any) {
             if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable) {
                 return this.errorAmountNotAvailable
@@ -144,8 +156,13 @@ export class Pool implements Contract {
     }
 
     async getEstimatedRequiredJettonForTon(provider: ContractProvider, tonAmount: bigint) {
+        const feePerMille = await this.getFeePerMille(provider);
         try {
-            return -(await this.getEstimatedJettonForTon(provider, -tonAmount))
+            // similarly to getEstimatedRequiredTonForJetton,
+            // we compensate the (1 - fee)^2 factor of the tonAmount
+            const compensatedTonAmount = tonAmount + tonAmount * 2n * feePerMille / 1000n;
+            console.log('compensatedTonAmount:',compensatedTonAmount)
+            return -(await this.getEstimatedJettonForTon(provider, -compensatedTonAmount))
         } catch (error: any) {
             if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable) {
                 return this.errorAmountNotAvailable

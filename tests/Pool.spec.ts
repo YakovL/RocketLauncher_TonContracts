@@ -220,12 +220,10 @@ describe('Pool', () => {
 
         const estimatedRequiredTonAmount = await poolContract.getEstimatedRequiredTonForJetton(estimatedJettonAmount);
         if(estimatedRequiredTonAmount == poolContract.errorAmountNotAvailable) throw 'unexpectedly, getter told amount is not available';
-        const manuallyEstimatedRequiredTonAmount = tonAmountToSwap - 2n * tonAmountToSwap * BigInt(feePerMille) / 1000n
-            + tonAmountToSwap * BigInt(feePerMille) / 1000n * BigInt(feePerMille) / 1000n;
-        const diff = estimatedRequiredTonAmount - manuallyEstimatedRequiredTonAmount;
+        const diff = estimatedRequiredTonAmount - tonAmountToSwap;
         const absDiff = diff > 0n ? diff : - diff;
-        // that is, when amountFactor is big enough (see above)
-        expect(absDiff).toBeLessThan(manuallyEstimatedRequiredTonAmount / 1000n);
+        // that is, when amountFactor is big enough (see above) and feePerMille is small enough
+        expect(absDiff).toBeLessThan(tonAmountToSwap / 1000n);
 
         await poolContract.sendBuyJetton(deployer.getSender(), tonAmountToSwap);
 
@@ -248,13 +246,27 @@ describe('Pool', () => {
         expect(estimatedTonAmount).toBeLessThanOrEqual(effectiveSwapTonAmount);
         expect(estimatedTonAmount).toBeGreaterThanOrEqual(effectiveSwapTonAmount - 1n);
 
-        // TODO: test "how much Jetton should I provide to get .. TON?" as well (including the negative scenario)
-        const jettonAmountForUnavailable = await poolContract.getEstimatedRequiredJettonForTon(newTonBalance + 1n);
+        // how much Jetton should I provide to get .. TON?
+        const availableToBalance = newTonBalance - newTonBalance * BigInt(feePerMille) / 1000n;
+        // we don't use just +1n, because the estimation is not precise:
+        // amount * (1 - fee) * (1 + 2 * fee) * (1 - fee) = amount (1 - 3 fee^2 + 2 fee^3) < amount
+        // note that factor 1000n here is not arbitrary: it implies that fee^2 << 0.001
+        const jettonAmountForUnavailable = await poolContract.getEstimatedRequiredJettonForTon(
+            availableToBalance + availableToBalance / 1000n);
         expect(jettonAmountForUnavailable).toEqual(poolContract.errorAmountNotAvailable);
 
-        const jettonAmountForAvailable = await poolContract.getEstimatedRequiredJettonForTon(newTonBalance - 1n);
+        const jettonAmountForAvailable = await poolContract.getEstimatedRequiredJettonForTon(availableToBalance);
         expect(jettonAmountForAvailable).not.toEqual(poolContract.errorAmountNotAvailable);
 
+        const estimatedRequiredJettonAmount = await poolContract.getEstimatedRequiredJettonForTon(estimatedTonAmount);
+        if(estimatedRequiredJettonAmount == poolContract.errorAmountNotAvailable) throw 'unexpectedly, getter told amount is not available';
+        const diffJtn = estimatedRequiredJettonAmount - jettonAmountToSwap;
+        const absDiffJtn = diffJtn > 0n ? diffJtn : - diffJtn;
+        if(jettonAmountToSwap / 1000n > 0) {
+            expect(absDiffJtn).toBeLessThan(jettonAmountToSwap / 1000n);
+        } else {
+            expect(absDiffJtn).toEqual(jettonAmountToSwap / 1000n);
+        }
     });
 
     it('should allow admin to collect funds', async () => {

@@ -367,11 +367,16 @@ int estimated_ton_for_jetton(int jetton_amount) method_id {
 
 int estimated_jetton_for_ton(int ton_amount) method_id {
     var (_, _jetton_balance, _ton_balance, T0, FEE_PER_MILLE, _, _, _, _) = load_data();
+    int effective_ton_amount = deduce_amm_fee(ton_amount, FEE_PER_MILLE);
+
     ;; when using this with negative ton_amount to predict jetton amount required to get TON,
     ;; let them know when such amount is not available
-    throw_if(error_pool__amount_not_available, _ton_balance + ton_amount < 0);
-
-    int effective_ton_amount = deduce_amm_fee(ton_amount, FEE_PER_MILLE);
+    throw_if(error_pool__amount_not_available, _ton_balance + effective_ton_amount < 0);
     return get_jetton_amount_for_ton(effective_ton_amount, _jetton_balance, _ton_balance, T0);
+}
+
+int fee_per_mille() method_id {
+    var (_, _, _, _, FEE_PER_MILLE, _, _, _, _) = load_data();
+    return FEE_PER_MILLE;
 }
 
