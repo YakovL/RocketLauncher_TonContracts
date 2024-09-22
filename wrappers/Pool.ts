@@ -129,6 +129,31 @@ export class Pool implements Contract {
         return stack.readBigNumber();
     }
 
+    readonly errorAmountNotAvailable = 'amount_not_available';
+    readonly contractErrorAmountNotAvailable = 0xfff3;
+
+    async getEstimatedRequiredTonForJetton(provider: ContractProvider, jettonAmount: bigint) {
+        try {
+            return -(await this.getEstimatedTonForJetton(provider, -jettonAmount))
+        } catch (error: any) {
+            if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable) {
+                return this.errorAmountNotAvailable
+            }
+            throw error
+        }
+    }
+
+    async getEstimatedRequiredJettonForTon(provider: ContractProvider, tonAmount: bigint) {
+        try {
+            return -(await this.getEstimatedJettonForTon(provider, -tonAmount))
+        } catch (error: any) {
+            if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable) {
+                return this.errorAmountNotAvailable
+            }
+            throw error
+        }
+    }
+
     async getCollectFeeUpperEstimation(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("collect_fee_upper_estimation", []);
         return stack.readBigNumber();

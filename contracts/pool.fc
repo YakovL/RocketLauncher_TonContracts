@@ -357,6 +357,9 @@ int buy_jetton_fixed_fee() method_id {
 ;; these return "math" result and don't account the tx fees
 int estimated_ton_for_jetton(int jetton_amount) method_id {
     var (_, _jetton_balance, _ton_balance, T0, FEE_PER_MILLE, _, _, _, _) = load_data();
+    ;; when using this with negative jetton_amount to predict TON amount required to get jetton,
+    ;; let them know when such amount is not available (impossible to get _jetton_balance, too!)
+    throw_if(error_pool__amount_not_available, _jetton_balance + jetton_amount <= 0);
 
     int ton_swap_amount = get_ton_amount_for_jetton(jetton_amount, _jetton_balance, _ton_balance, T0);
     return deduce_amm_fee(ton_swap_amount, FEE_PER_MILLE);
@@ -364,6 +367,9 @@ int estimated_ton_for_jetton(int jetton_amount) method_id {
 
 int estimated_jetton_for_ton(int ton_amount) method_id {
     var (_, _jetton_balance, _ton_balance, T0, FEE_PER_MILLE, _, _, _, _) = load_data();
+    ;; when using this with negative ton_amount to predict jetton amount required to get TON,
+    ;; let them know when such amount is not available
+    throw_if(error_pool__amount_not_available, _ton_balance + ton_amount < 0);
 
     int effective_ton_amount = deduce_amm_fee(ton_amount, FEE_PER_MILLE);
     return get_jetton_amount_for_ton(effective_ton_amount, _jetton_balance, _ton_balance, T0);
