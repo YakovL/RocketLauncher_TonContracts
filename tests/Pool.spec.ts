@@ -269,6 +269,22 @@ describe('Pool', () => {
         }
     });
 
+    it('should return correct estimations of exchange fees and overall exchange result', async () => {
+        const amountFactor = 1000n;
+        const tonAmountToSwap = amountFactor * jettonMinPrice;
+
+        const fixedTxFee = await poolContract.getBuyJettonFixedFee();
+        const estimatedJettonAmount = await poolContract.getEstimatedJettonForTon(tonAmountToSwap);
+
+        await poolContract.sendBuyJetton(deployer.getSender(), tonAmountToSwap + fixedTxFee);
+
+        const newJettonBalance = await poolContract.getVirtualJettonBalance();
+        const receivedJettonsAmount = initPoolJettonBalance - newJettonBalance;
+
+        // got exact equality!
+        expect(receivedJettonsAmount).toBeGreaterThanOrEqual(estimatedJettonAmount);
+    });
+
     it('should allow admin to collect funds', async () => {
         // ensure pool has some TON
         const additionalAmount = 2_000_000_000n;
