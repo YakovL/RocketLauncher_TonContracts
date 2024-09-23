@@ -171,6 +171,10 @@ export class Pool implements Contract {
         }
     }
 
+    // must be aligned with fee_sell_jetton_pool_tx
+    // estimated as totalFees on pool when selling
+    static readonly estimatedFixedFee_sellJetton = 2_400_000n;
+
     async getCollectFeeUpperEstimation(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("collect_fee_upper_estimation", []);
         return stack.readBigNumber();

@@ -156,9 +156,11 @@ const send_jetton_forward_further_amount = 1000000;
 
 ;; == messages ==
 ;; these are estimated in tests; not using exact numbers to update less frequently
-const fee_buy_jetton_forward = 47500000;    ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
-const fee_buy_jetton_tx = 2500000;          ;; computation fees etc
-const fee_process_jetton_swap_tx = 2300000; ;; computation fees etc
+const fee_buy_jetton_forward = 47500000;        ;; 40000000 makes tests fail; chose value that produces total fixed fee of 0.05 TON
+const fee_buy_jetton_tx = 2500000;              ;; computation fees etc
+
+const fee_sell_jetton_pool_tx = 2400000;        ;; computation fees etc, must be aligned with estimatedFixedFee_sellJetton
+
 const fee_collect_funds_tx = 2500000;           ;; total fees, enough to deduce when collecting far from whole balance
 const fee_collect_funds_non_transfer = 2000000; ;; fees that are deduced before the action phase and/or balance margin
 ;; note: while collecting small amounts works with fee_collect_funds_non_transfer = 0,
@@ -277,7 +279,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
         -}
         send_ton(
             jetton_sender_address,
-            effective_ton_amount - fee_process_jetton_swap_tx + msg_value,
+            effective_ton_amount - fee_sell_jetton_pool_tx + msg_value,
             query_id);
 
         _jetton_balance += received_jetton_amount;

@@ -15,11 +15,11 @@ describe('Pool', () => {
         uri: 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json',
     } as Parameters<typeof JettonMinter.jettonContentToCell>[0];
 
-    // These were estimated from the 'should allow to ... send jettons' and
+    const sendJetton_estimatedForwardAmount = Pool.estimatedFixedFee_sellJetton;
+    // Estimated from the 'should allow to ... send jettons' and
     // 'should get its balance changed by no less than its ton_balance' tests.
-    // For some reason, setting fee_process_jetton_swap_tx doesn't allow to reduce sendJetton_estimatedForwardAmount;
-    // however, we add the incoming value to what is send to user, so this is not an extra fee.
-    const sendJetton_estimatedForwardAmount = 3_000_000n;
+    // For some reason, this is much greater than sendJetton_estimatedForwardAmount and can't be lowered;
+    // however, a part of it is returned to the user with excesses.
     const sendJetton_estimatedValue = 42_000_000n + sendJetton_estimatedForwardAmount;
 
     let code: Cell;
