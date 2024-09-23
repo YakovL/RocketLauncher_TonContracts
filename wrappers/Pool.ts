@@ -171,9 +171,14 @@ export class Pool implements Contract {
         }
     }
 
-    // must be aligned with fee_sell_jetton_pool_tx
+    // must be aligned with fee_sell_jetton_pool_tx;
     // estimated as totalFees on pool when selling
     static readonly estimatedFixedFee_sellJetton = 2_400_000n;
+    // Estimated from the 'should allow to ... send jettons' and
+    // 'should get its balance changed by no less than its ton_balance' tests.
+    // For some reason, this is much greater than sendJetton_estimatedForwardAmount and can't be lowered;
+    // however, a part of it is returned to the user with excesses.
+    static readonly estimatedMinimalValueToSend_sellJetton = 42_000_000n + this.estimatedFixedFee_sellJetton;
 
     async getCollectFeeUpperEstimation(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("collect_fee_upper_estimation", []);

@@ -15,13 +15,6 @@ describe('Pool', () => {
         uri: 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json',
     } as Parameters<typeof JettonMinter.jettonContentToCell>[0];
 
-    const sendJetton_estimatedForwardAmount = Pool.estimatedFixedFee_sellJetton;
-    // Estimated from the 'should allow to ... send jettons' and
-    // 'should get its balance changed by no less than its ton_balance' tests.
-    // For some reason, this is much greater than sendJetton_estimatedForwardAmount and can't be lowered;
-    // however, a part of it is returned to the user with excesses.
-    const sendJetton_estimatedValue = 42_000_000n + sendJetton_estimatedForwardAmount;
-
     let code: Cell;
     let minterCode: Cell;
     let walletCode: Cell;
@@ -121,12 +114,12 @@ describe('Pool', () => {
 
         const sendJettonAmount = deployerJettonBalance;
         const sellResult = await deployerJettonWalletContract.sendTransfer(deployer.getSender(),
-            sendJetton_estimatedValue,
+            Pool.estimatedMinimalValueToSend_sellJetton,
             sendJettonAmount,
             poolContract.address,   // to
             deployer.address,       // response address
             null,                   // custom payload
-            sendJetton_estimatedForwardAmount,
+            Pool.estimatedFixedFee_sellJetton,
             null                    // forward payload
         );
         expect(sellResult.transactions).not.toHaveTransaction({ success: false });
@@ -135,7 +128,7 @@ describe('Pool', () => {
         const deployerJettonBalanceAfterSell = await deployerJettonWalletContract.getJettonBalance();
 
         expect(deployerJettonBalanceAfterSell).toEqual(0n);
-        expect(deployerBalanceAfterSell - deployerBalanceBeforeSell - sendJetton_estimatedValue).toBeGreaterThan(0n);
+        expect(deployerBalanceAfterSell - deployerBalanceBeforeSell - Pool.estimatedMinimalValueToSend_sellJetton).toBeGreaterThan(0n);
     });
 
     it('should sell jettons by increasing price', async () => {
@@ -183,10 +176,10 @@ describe('Pool', () => {
         const sendJettonAmount = await deployerJettonWalletContract.getJettonBalance();
 
         const sellResult = await deployerJettonWalletContract.sendTransfer(deployer.getSender(),
-            sendJetton_estimatedValue,
+            Pool.estimatedMinimalValueToSend_sellJetton,
             sendJettonAmount, poolContract.address,
             deployer.address,
-            null, sendJetton_estimatedForwardAmount, null
+            null, Pool.estimatedFixedFee_sellJetton, null
         );
         expect(sellResult.transactions).not.toHaveTransaction({ success: false });
 
