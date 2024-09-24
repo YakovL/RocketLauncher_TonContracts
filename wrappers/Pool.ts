@@ -148,7 +148,9 @@ export class Pool implements Contract {
             // i.e. we need amount/(1 - fee)^2, which we estimate as amount*(1 + 2*fee)
             return amount + amount * 2n * feePerMille / 1000n;
         } catch (error: any) {
-            if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable) {
+            if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable
+             || 'message' in error && error.message.includes(`exit_code: ${this.contractErrorAmountNotAvailable}`)
+            ) {
                 return this.errorAmountNotAvailable
             }
             throw error
@@ -164,7 +166,9 @@ export class Pool implements Contract {
             console.log('compensatedTonAmount:',compensatedTonAmount)
             return -(await this.getEstimatedJettonForTon(provider, -compensatedTonAmount))
         } catch (error: any) {
-            if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable) {
+            if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable
+             || 'message' in error && error.message.includes(`exit_code: ${this.contractErrorAmountNotAvailable}`)
+            ) {
                 return this.errorAmountNotAvailable
             }
             throw error
