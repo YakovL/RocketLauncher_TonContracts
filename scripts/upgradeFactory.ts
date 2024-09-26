@@ -9,7 +9,7 @@ export async function run(provider: NetworkProvider) {
     const newFactoryCode = await compile('JettonFactory');
     const shouldUpdatePool = await confirm({ message: 'Should update pool code as well?' });
 
-    const upgrade_estimatedValue = 1000_000n;
+    const upgrade_estimatedValue = JettonFactory.get_sendUpgrade_estimatedValue(shouldUpdatePool);
     await factory.sendUpgrade(provider.sender(), upgrade_estimatedValue, newFactoryCode, {
         newPoolCode: shouldUpdatePool ? await compile('Pool') : undefined,
     });

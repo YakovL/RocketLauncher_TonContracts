@@ -122,6 +122,8 @@ export class JettonFactory implements Contract {
         });
     }
 
+    // rough estimations from the tests; fails for 500_000n (shouldUpdatePool: false) and for 1_000_000n (true)
+    static get_sendUpgrade_estimatedValue = (shouldUpdatePool: boolean) => shouldUpdatePool ? 1_500_000n : 1_000_000n;
     async sendUpgrade(provider: ContractProvider, via: Sender, value: bigint, newCode: Cell, options: {
         newPoolCode?: Cell
     }) {

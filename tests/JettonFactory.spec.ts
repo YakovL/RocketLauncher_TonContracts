@@ -9,9 +9,6 @@ import { Pool } from '../wrappers/Pool';
 import '@ton/test-utils';
 
 const config = {
-    upgrade_estimatedValue: 1000_000n, // fails for 500_000n
-    upgradeWithNewPool_estimatedValue: 1500_000n, // fails for 1_000_000n
-
     // normal values, far from edge cases
     totalSupply: 100_000_000_000n,
     minimalPrice: 1000_000n,
@@ -172,13 +169,14 @@ const testFactoryFeatures = async (context : CompiledContracts & TestContext) =>
     // === upgrading, part 1 ===
     it('should be upgradable by admin (deployer)', async () => {
         const result = await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
-            config.upgrade_estimatedValue,
+            JettonFactory.get_sendUpgrade_estimatedValue(false),
             context.factoryCode, {});
         expect(result.transactions).not.toHaveTransaction({ success: false });
     });
+
     it('should not be upgradable by non-admin', async () => {
         const result = await context.jettonFactoryContract.sendUpgrade(context.nonDeployer.getSender(),
-            config.upgrade_estimatedValue,
+            JettonFactory.get_sendUpgrade_estimatedValue(false),
             context.factoryCode, {});
         expect(result.transactions).toHaveTransaction({ success: false });
     });
@@ -205,7 +203,7 @@ describe('JettonFactory after upgrade', () => {
         Object.assign(context, await prepareTestEntities(context))
 
         await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
-            config.upgrade_estimatedValue,
+            JettonFactory.get_sendUpgrade_estimatedValue(false),
             context.factoryCode, {} // i.e. the same as before
         );
     });
@@ -219,7 +217,7 @@ describe('JettonFactory after upgrade', () => {
         } = await getModifiedContractCode('jetton_factory.fc');
 
         const result = await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
-            config.upgrade_estimatedValue,
+            JettonFactory.get_sendUpgrade_estimatedValue(false),
             modifiedFactoryCode, {});
         expect(result.transactions).not.toHaveTransaction({ success: false });
 
@@ -237,7 +235,7 @@ describe('JettonFactory after upgrade', () => {
         } = await getModifiedContractCode('pool.fc');
 
         const upgradeResult = await context.jettonFactoryContract.sendUpgrade(context.deployer.getSender(),
-            config.upgradeWithNewPool_estimatedValue,
+            JettonFactory.get_sendUpgrade_estimatedValue(true),
             context.factoryCode, {
                 newPoolCode
             });
