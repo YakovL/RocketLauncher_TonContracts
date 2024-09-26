@@ -114,6 +114,43 @@ const testFactoryFeatures = async (context : CompiledContracts & TestContext) =>
     it('should deploy Pool, Jetton, and mint it', async () => {
         const deployerSupplyPercent = await context.jettonFactoryContract.getMaxDeployerSupplyPercent();
         const { totalSupply, minimalPrice } = config;
+
+        const result = await context.jettonFactoryContract.sendInitiateNew(context.deployer.getSender(),
+            JettonFactory.sendInitiateNew_estimatedValue, {
+                metadataUri,
+                totalSupply,
+                deployerSupplyPercent,
+                minimalPrice,
+            }
+        );
+
+        expect(result.transactions).not.toHaveTransaction({ success: false });
+
+        // pool deployed and initiated
+        expect(result.transactions).toHaveTransaction({ op: Pool.ops.init, deploy: true });
+
+        // 2-in-1: deploy + mint to pool
+        expect(result.transactions).toHaveTransaction({ op: JettonOp.mint, deploy: true });
+
+        const internalTransfers = result.transactions.filter(
+            t => flattenTransaction(t).op === JettonOp.internal_transfer);
+        expect(internalTransfers.length).toBe(2);
+
+        const transferToPoolWallet = internalTransfers[0];
+        const poolWalletAddress = flattenTransaction(transferToPoolWallet).to!;
+        const poolJettonWalletContract = context.blockchain.openContract(
+            JettonWallet.createFromAddress(poolWalletAddress)
+        );
+        const poolJettonBalance = await poolJettonWalletContract.getJettonBalance();
+        expect(poolJettonBalance).toEqual(totalSupply - totalSupply * deployerSupplyPercent / 100n);
+
+        const transferToDeployerWallet = internalTransfers[1];
+        const deployerWalletAddress = flattenTransaction(transferToDeployerWallet).to!;
+        const deployerJettonWalletContract = context.blockchain.openContract(
+            JettonWallet.createFromAddress(deployerWalletAddress)
+        );
+        const deployerJettonBalance = await deployerJettonWalletContract.getJettonBalance();
+        expect(deployerJettonBalance).toEqual(totalSupply * deployerSupplyPercent / 100n);
     });
 
     it('should not deploy Pool when deployer requests too much supply share', async () => {
