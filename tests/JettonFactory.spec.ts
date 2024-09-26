@@ -118,14 +118,15 @@ const testFactoryFeatures = async (context : CompiledContracts & TestContext) =>
 
     it('should not deploy Pool when deployer requests too much supply share', async () => {
         const deployerSupplyPercent = await context.jettonFactoryContract.getMaxDeployerSupplyPercent() + 1n;
-        const bigAmount = 100_000_000_000n;
 
-        const result = await context.jettonFactoryContract.sendInitiateNew(context.deployer.getSender(), bigAmount, {
-            metadataUri,
-            totalSupply: config.totalSupply,
-            deployerSupplyPercent,
-            minimalPrice: config.minimalPrice,
-        });
+        const result = await context.jettonFactoryContract.sendInitiateNew(context.deployer.getSender(),
+            JettonFactory.sendInitiateNew_estimatedValue, {
+                metadataUri,
+                totalSupply: config.totalSupply,
+                deployerSupplyPercent,
+                minimalPrice: config.minimalPrice,
+            }
+        );
 
         // see error_too_much_deployer_supply_share_requested
         expect(result.transactions).toHaveTransaction({ success: false, exitCode: 0xffa1 });
@@ -205,12 +206,13 @@ describe('JettonFactory after upgrade', () => {
             });
         expect(upgradeResult.transactions).not.toHaveTransaction({ success: false });
 
-        const bigAmount = 100_000_000_000n;
-        const initiateNewResult = await context.jettonFactoryContract.sendInitiateNew(context.deployer.getSender(), bigAmount, {
-            ...config,
-            metadataUri,
-            deployerSupplyPercent: 0n,
-        });
+        const initiateNewResult = await context.jettonFactoryContract.sendInitiateNew(context.deployer.getSender(),
+            JettonFactory.sendInitiateNew_estimatedValue, {
+                ...config,
+                metadataUri,
+                deployerSupplyPercent: 0n,
+            }
+        );
         expect(initiateNewResult.transactions).not.toHaveTransaction({ success: false });
         expect(initiateNewResult.transactions).toHaveTransaction({
             op: Pool.ops.init,
