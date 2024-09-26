@@ -69,7 +69,7 @@ export class JettonFactory implements Contract {
         initiateNew: 1,
         onPoolDeployProceedToMinter: 2,
         upgrade: 111,
-    };
+    } as const;
 
     // public methods
     // Based on https://github.com/ton-blockchain/token-contract/blob/main/wrappers/JettonMinter.ts

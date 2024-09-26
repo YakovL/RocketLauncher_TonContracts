@@ -76,7 +76,7 @@ export class Pool implements Contract {
         init: 101,
         collectFunds: 102,
         buyJetton: 1,
-    };
+    } as const;
 
     async sendBuyJetton(provider: ContractProvider, via: Sender,
         value: bigint
