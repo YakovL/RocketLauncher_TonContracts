@@ -29,6 +29,7 @@ export class Pool implements Contract {
     static poolConfigToCell(config: PoolConfigAddressDefining): Cell {
         return beginCell()
             .storeRef(config.poolJettonContent)
+            .storeCoins(0)     // placeholder: INITIAL_JETTON_BALANCE
             .storeCoins(0)     // placeholder: jetton_balance
             .storeCoins(0)     // initial ton balance is 0
             .storeCoins(0)     // placeholder: T0

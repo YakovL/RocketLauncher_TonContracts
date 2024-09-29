@@ -14,6 +14,7 @@ cell build_minter_init_data(cell metadata, cell jetton_wallet_code) inline {
 cell build_pool_init_data(cell jetton_metadata) inline {
     return begin_cell()
         .store_ref(jetton_metadata)
+        .store_coins(0)    ;; placeholder: INITIAL_JETTON_BALANCE
         .store_coins(0)    ;; placeholder: jetton_balance
         .store_coins(0)    ;; initial ton balance is 0
         .store_coins(0)    ;; placeholder: T0

@@ -9,11 +9,12 @@
 ;; or from the returned TON amount (when converting Jetton → TON).
 
 ;; == storage ==
-;; must be aligned with save_data, poolConfigToCell, handling operation_pool__initiate
+;; must be aligned with save_data, poolConfigToCell, handling operation_pool__initiate, and also build_pool_init_data
 (
     ;; -- address-defining --
     cell, ;; JETTON_METADATA (defines minter address and can be passed to factory for further deploy)
     ;; -- set during initiate --
+    int,  ;; INITIAL_JETTON_BALANCE
     int   ;; pool jetton balance (J)
   , int   ;; pool TON balance (T)
   , int   ;; T0
@@ -30,6 +31,7 @@
         ds~load_ref(),     ;; JETTON_METADATA
 
         ;; 2^100 > 10^30, 10^21 with decimals: 9 – more than enough
+        ds~load_coins(),   ;; INITIAL_JETTON_BALANCE
         ds~load_coins()    ;; pool jetton balance
       , ds~load_coins()    ;; pool TON balance
       , ds~load_coins()    ;; T0
@@ -46,6 +48,7 @@
 () save_data(
     cell JETTON_METADATA,
 
+    int INITIAL_JETTON_BALANCE,
     int jetton_balance
   , int ton_balance
   , int T0
@@ -57,6 +60,7 @@
 ) impure inline {
     set_data(begin_cell()
         .store_ref(JETTON_METADATA)
+        .store_coins(INITIAL_JETTON_BALANCE)
         .store_coins(jetton_balance)
         .store_coins(ton_balance)
         .store_coins(T0)
@@ -188,6 +192,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
     int operation_type = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
     var (JETTON_METADATA,
+          INITIAL_JETTON_BALANCE,
           _jetton_balance
         , _ton_balance
         , T0
@@ -207,6 +212,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
 
         ;; the parsing must be aligned with sendDeploy
         _jetton_balance = in_msg_body~load_coins();
+        INITIAL_JETTON_BALANCE = _jetton_balance;
         T0 = in_msg_body~load_coins();
         FEE_PER_MILLE = in_msg_body~load_uint(10);
         FACTORY_ADDRESS = in_msg_body~load_msg_addr();
@@ -311,6 +317,7 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
 
     if (should_update_data_before_return == 1) {
         save_data(JETTON_METADATA,
+            INITIAL_JETTON_BALANCE,
             _jetton_balance,
             _ton_balance,
             T0,
@@ -328,23 +335,17 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
 
 ;; == getters ==
 int jetton_balance() method_id {
-    var (_, _jetton_balance
-        , _, _, _, _, _, _, _
-    ) = load_data();
+    var (_, _, _jetton_balance, _, _, _, _, _, _, _) = load_data();
     return _jetton_balance;
 }
 
 int ton_balance() method_id {
-    var (_, _, _ton_balance
-        , _, _, _, _, _, _
-    ) = load_data();
+    var (_, _, _, _ton_balance, _, _, _, _, _, _) = load_data();
     return _ton_balance;
 }
 
 int collectable_funds_amount() method_id {
-    var (_, _, _ton_balance
-        , _, _, _, _, _, _
-    ) = load_data();
+    var (_, _, _, _ton_balance, _, _, _, _, _, _) = load_data();
     return get_collectable_funds_amount(_ton_balance) - fee_collect_funds_tx - fee_collect_funds_non_transfer;
 }
 
@@ -358,7 +359,7 @@ int buy_jetton_fixed_fee() method_id {
 
 ;; these return "math" result and don't account the tx fees
 int estimated_ton_for_jetton(int jetton_amount) method_id {
-    var (_, _jetton_balance, _ton_balance, T0, FEE_PER_MILLE, _, _, _, _) = load_data();
+    var (_, _, _jetton_balance, _ton_balance, T0, FEE_PER_MILLE, _, _, _, _) = load_data();
     ;; when using this with negative jetton_amount to predict TON amount required to get jetton,
     ;; let them know when such amount is not available (impossible to get _jetton_balance, too!)
     throw_if(error_pool__amount_not_available, _jetton_balance + jetton_amount <= 0);
@@ -368,7 +369,7 @@ int estimated_ton_for_jetton(int jetton_amount) method_id {
 }
 
 int estimated_jetton_for_ton(int ton_amount) method_id {
-    var (_, _jetton_balance, _ton_balance, T0, FEE_PER_MILLE, _, _, _, _) = load_data();
+    var (_, _, _jetton_balance, _ton_balance, T0, FEE_PER_MILLE, _, _, _, _) = load_data();
     int effective_ton_amount = deduce_amm_fee(ton_amount, FEE_PER_MILLE);
 
     ;; when using this with negative ton_amount to predict jetton amount required to get TON,
@@ -378,7 +379,7 @@ int estimated_jetton_for_ton(int ton_amount) method_id {
 }
 
 int fee_per_mille() method_id {
-    var (_, _, _, _, FEE_PER_MILLE, _, _, _, _) = load_data();
+    var (_, _, _, _, _, FEE_PER_MILLE, _, _, _, _) = load_data();
     return FEE_PER_MILLE;
 }
 
