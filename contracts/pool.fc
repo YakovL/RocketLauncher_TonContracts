@@ -201,24 +201,24 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
 
     ;; handle initiate and attempts to handle other ops before initiation
     if (operation_type == operation_pool__initiate) {
-        if (~ IS_INITED) {
-            ;; the parsing must be aligned with sendDeploy
-            _jetton_balance = in_msg_body~load_coins();
-            T0 = in_msg_body~load_coins();
-            FEE_PER_MILLE = in_msg_body~load_uint(10);
-            FACTORY_ADDRESS = in_msg_body~load_msg_addr();
-            POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
-            admin_address = in_msg_body~load_msg_addr();
-            IS_INITED = 1;
-
-            var forward_data_additions = in_msg_body~load_ref().begin_parse();
-            int total_supply = forward_data_additions~load_coins();
-            slice jetton_author_address = forward_data_additions~load_msg_addr();
-
-            should_update_data_before_return = 1;
-        } else {
+        if (IS_INITED) {
             throw(error_pool__already_initiated);
         }
+
+        ;; the parsing must be aligned with sendDeploy
+        _jetton_balance = in_msg_body~load_coins();
+        T0 = in_msg_body~load_coins();
+        FEE_PER_MILLE = in_msg_body~load_uint(10);
+        FACTORY_ADDRESS = in_msg_body~load_msg_addr();
+        POOL_JETTON_WALLET_ADDRESS = in_msg_body~load_msg_addr();
+        admin_address = in_msg_body~load_msg_addr();
+        IS_INITED = 1;
+
+        var forward_data_additions = in_msg_body~load_ref().begin_parse();
+        int total_supply = forward_data_additions~load_coins();
+        slice jetton_author_address = forward_data_additions~load_msg_addr();
+
+        should_update_data_before_return = 1;
     }
     if ((operation_type != operation_pool__initiate) & (IS_INITED != 1)) {
         throw(error_pool__not_allowed_before_initiate);
