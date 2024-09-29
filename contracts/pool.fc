@@ -339,6 +339,11 @@ int jetton_balance() method_id {
     return _jetton_balance;
 }
 
+int sold_jettons_amount() method_id {
+    var (_, INITIAL_JETTON_BALANCE, _jetton_balance, _, _, _, _, _, _, _) = load_data();
+    return INITIAL_JETTON_BALANCE - _jetton_balance;
+}
+
 int ton_balance() method_id {
     var (_, _, _, _ton_balance, _, _, _, _, _, _) = load_data();
     return _ton_balance;

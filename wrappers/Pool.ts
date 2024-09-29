@@ -109,6 +109,11 @@ export class Pool implements Contract {
         return stack.readBigNumber();
     }
 
+    async getSoldJettonsAmount(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("sold_jettons_amount", []);
+        return stack.readBigNumber();
+    }
+
     async getBuyJettonFixedFee(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("buy_jetton_fixed_fee", []);
         return stack.readBigNumber();
