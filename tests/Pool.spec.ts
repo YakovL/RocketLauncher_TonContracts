@@ -147,7 +147,7 @@ describe('Pool', () => {
         expect(balanceAfterSecondBuy - balanceAfterFirstBuy).toBeLessThan(balanceAfterFirstBuy);
     });
 
-    it('should revert selling jettons if the pool balance would exceed initial supply', async () => {
+    it('should revert selling jettons if the pool balance would exceed initial supply (at expense of seller)', async () => {
         // mint some to deployer: since the pool balance is untouched,
         // any attempt to send to pool would make its balance exceed initial supply
         const userAmount = initPoolJettonBalance / 100n;
@@ -165,8 +165,8 @@ describe('Pool', () => {
             JettonWallet.createFromAddress(userJettonWalletAddress)
         );
         expect(await userJettonWalletContract.getJettonBalance()).toEqual(userAmount);
-    
-        // unexpectedly, this worked even without increasing estimatedFixedFee_sellJetton
+
+        const poolBalance = await poolContract.getBalance();
         const sellResult = await userJettonWalletContract.sendTransfer(deployer.getSender(),
             Pool.estimatedMinimalValueToSend_sellJetton,
             userAmount,
@@ -176,6 +176,9 @@ describe('Pool', () => {
             Pool.estimatedFixedFee_sellJetton,
             null                    // forward payload
         );
+        const poolBalanceAfter = await poolContract.getBalance();
+
+        expect(poolBalanceAfter).toBeGreaterThanOrEqual(poolBalance);
         expect(sellResult.transactions).not.toHaveTransaction({ success: false });
         expect(await userJettonWalletContract.getJettonBalance()).toEqual(userAmount);
     });
