@@ -147,6 +147,39 @@ describe('Pool', () => {
         expect(balanceAfterSecondBuy - balanceAfterFirstBuy).toBeLessThan(balanceAfterFirstBuy);
     });
 
+    it('should revert selling jettons if the pool balance would exceed initial supply', async () => {
+        // mint some to deployer: since the pool balance is untouched,
+        // any attempt to send to pool would make its balance exceed initial supply
+        const userAmount = initPoolJettonBalance / 100n;
+        const mintResult = await minterContract.sendMint(
+            deployer.getSender(),
+            deployer.address,
+            userAmount,
+            50_000_000n, // TODO: estimate and set correct forward_ton_amount
+            60_000_000n  // TODO: estimate and set correct total_ton_amount
+        );
+        const walletCreatedEvent = mintResult.events.find(e => e.type === 'account_created');
+        expect(walletCreatedEvent).toBeTruthy();
+        const userJettonWalletAddress = (walletCreatedEvent as { account: Address }).account;
+        const userJettonWalletContract = blockchain.openContract(
+            JettonWallet.createFromAddress(userJettonWalletAddress)
+        );
+        expect(await userJettonWalletContract.getJettonBalance()).toEqual(userAmount);
+    
+        // unexpectedly, this worked even without increasing estimatedFixedFee_sellJetton
+        const sellResult = await userJettonWalletContract.sendTransfer(deployer.getSender(),
+            Pool.estimatedMinimalValueToSend_sellJetton,
+            userAmount,
+            poolContract.address,   // to
+            deployer.address,       // response address
+            null,                   // custom payload
+            Pool.estimatedFixedFee_sellJetton,
+            null                    // forward payload
+        );
+        expect(sellResult.transactions).not.toHaveTransaction({ success: false });
+        expect(await userJettonWalletContract.getJettonBalance()).toEqual(userAmount);
+    });
+
     it('should get its balance changed by no less than its ton_balance', async () => {
         const sendAmount = 1000_000_000n;
         const poolBalanceBefore = await poolContract.getBalance();
