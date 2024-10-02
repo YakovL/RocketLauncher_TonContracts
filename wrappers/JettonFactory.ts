@@ -52,7 +52,6 @@ export class JettonFactory implements Contract {
         return new JettonFactory(address, init);
     }
 
-    // TODO: make sure the amount is sufficient (maybe via autotests)
     estimatedDeployGasPrice = toNano('0.05');
 
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
@@ -71,25 +70,6 @@ export class JettonFactory implements Contract {
     } as const;
 
     // public methods
-    // Based on https://github.com/ton-blockchain/token-contract/blob/main/wrappers/JettonMinter.ts
-    // In our case, admin is the factory contract and wallet code is stored inside it, so JettonMinterConfig is simpler
-    async sendDeployNewJetton(provider: ContractProvider, via: Sender, config: JettonMinterConfig) {
-        await provider.internal(via, {
-            value: toNano('0.12'),
-            sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: beginCell()
-                .storeUint(JettonFactory.ops.onPoolDeployProceedToMinter, 32)
-                .storeUint(0, 64)
-                .storeCoins(config.totalSupply)
-                .storeRef(JettonMinter.jettonContentToCell({
-                    type: config.metadataType,
-                    uri: config.metadataUri, // presumably, .storeStringTail in jettonContentToCell implements snake data encoding (https://docs.ton.org/develop/dapps/asset-processing/metadata)
-                }))
-                .storeCoins(config.totalSupply * 95n / 100n)
-                .storeAddress(via.address)
-            .endCell(),
-        });
-    }
 
     // 0.1 is enough for wallet → factory → pool → factory; 0.15 for + deploy and mint to pool; 0.22 for + mint to deployer
     static sendInitiateNew_estimatedValue = toNano('0.22')
