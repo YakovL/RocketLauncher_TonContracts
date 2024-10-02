@@ -285,7 +285,7 @@ cell build_mint_body(
     }
 
     if (operation_type == operation_factory__on_pool_deploy) {
-        ;; this must be aligned with sendDeployNewJetton
+        ;; this must be aligned with send_success_to_factory
         int total_supply = in_msg_body~load_coins();
         cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
         int pool_supply = in_msg_body~load_coins();

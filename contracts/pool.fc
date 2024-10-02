@@ -85,6 +85,39 @@ int deduce_amm_fee(int ton_amount, int fee_per_mille) inline {
     return ton_amount - ton_amount * fee_per_mille ^/ 1000;
 }
 
+() send_success_to_factory(
+    slice factory_address,
+    int total_supply,
+    int pool_supply,
+    slice jetton_author_address,
+    cell jetton_metadata,
+    int query_id
+) impure inline {
+    send_raw_message(
+        begin_cell()
+            ;; header
+            .store_uint(0x18, 6)
+            .store_slice(factory_address)
+            .store_coins(0)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32)
+
+            ;; init (empty)
+            .store_uint(0, 1)
+
+            ;; body (inline)
+            .store_uint(0, 1)
+            .store_uint(operation_factory__on_pool_deploy, 32)
+            .store_uint(query_id, 64)
+            .store_coins(total_supply)
+            .store_ref(jetton_metadata)
+            .store_coins(pool_supply)
+            .store_slice(jetton_author_address)
+        .end_cell(),
+
+        64 + 16
+    );
+}
+
 const send_jetton_forward_further_amount = 1000000;
 
 () send_jetton(
@@ -223,6 +256,11 @@ int get_collectable_funds_amount(int virtual_ton_balance) inline {
         var forward_data_additions = in_msg_body~load_ref().begin_parse();
         int total_supply = forward_data_additions~load_coins();
         slice jetton_author_address = forward_data_additions~load_msg_addr();
+        send_success_to_factory(
+            FACTORY_ADDRESS,
+            total_supply, _jetton_balance, jetton_author_address, JETTON_METADATA,
+            query_id
+        );
 
         should_update_data_before_return = 1;
     }
