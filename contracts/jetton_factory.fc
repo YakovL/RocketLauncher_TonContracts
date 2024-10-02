@@ -288,6 +288,8 @@ cell build_mint_body(
         ;; this must be aligned with sendDeployNewJetton
         int total_supply = in_msg_body~load_coins();
         cell jetton_metadata = in_msg_body~load_ref(); ;; also known as 'content'
+        int pool_supply = in_msg_body~load_coins();
+        slice jetton_author_address = in_msg_body~load_msg_addr();
 
         (_, slice pool_address) = calculate_pool_init_state_and_address(jetton_metadata, pool_code);
         if (~ equal_slices(pool_address, sender_address)) {
@@ -302,6 +304,17 @@ cell build_mint_body(
             pool_address,
             query_id
         );
+
+        if (total_supply > pool_supply) {
+            request_mint(
+                calculate_contract_address(jetton_init_state),
+                total_supply - pool_supply,
+                jetton_author_address,
+                query_id,
+                my_address()
+            );
+        }
+
         return ();
     }
 
