@@ -75,26 +75,19 @@ export class JettonFactory implements Contract {
     // Based on https://github.com/ton-blockchain/token-contract/blob/main/wrappers/JettonMinter.ts
     // In our case, admin is the factory contract and wallet code is stored inside it, so JettonMinterConfig is simpler
     async sendDeployNewJetton(provider: ContractProvider, via: Sender, config: JettonMinterConfig) {
-        // TODO: learn how to generate them, set a "correct" one (at least unique)
-        const query_id = 0;
-        // must be aligned with jetton-minter (more specifically: ?, see also https://docs.ton.org/develop/dapps/asset-processing/jettons#retrieving-jetton-data)
-        const content = JettonMinter.jettonContentToCell({
-            type: config.metadataType,
-            uri: config.metadataUri, // presumably, .storeStringTail in jettonContentToCell implements snake data encoding (https://docs.ton.org/develop/dapps/asset-processing/metadata)
-        });
-        // less than 0.01 is needed for Jetton deploy, so 0.02 is more than enough
-        // TODO: retest after adding other operations
-        const value = toNano('0.02');
-
         await provider.internal(via, {
-            value,
+            value: toNano('0.12'),
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            // must be aligned with jetton_factory.rc (see operation_deploy_jetton)
             body: beginCell()
                 .storeUint(JettonFactory.ops.onPoolDeployProceedToMinter, 32)
-                .storeUint(query_id, 64)
+                .storeUint(0, 64)
                 .storeCoins(config.totalSupply)
-                .storeRef(content)
+                .storeRef(JettonMinter.jettonContentToCell({
+                    type: config.metadataType,
+                    uri: config.metadataUri, // presumably, .storeStringTail in jettonContentToCell implements snake data encoding (https://docs.ton.org/develop/dapps/asset-processing/metadata)
+                }))
+                .storeCoins(config.totalSupply * 95n / 100n)
+                .storeAddress(via.address)
             .endCell(),
         });
     }

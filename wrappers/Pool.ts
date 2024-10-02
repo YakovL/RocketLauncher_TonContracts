@@ -73,7 +73,7 @@ export class Pool implements Contract {
     }
 
     static ops = {
-        // these must be aligned with pool.rc
+        // these must be aligned with ops_and_errors.rc
         init: 101,
         collectFunds: 102,
         buyJetton: 1,

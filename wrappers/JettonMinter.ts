@@ -117,7 +117,7 @@ export class JettonMinter implements Contract {
     */
     static discoveryMessage(owner: Address, include_address: boolean) {
         return beginCell()
-            .storeUint(0x2c76b973, 32) // op
+            .storeUint(Op.provide_wallet_address, 32)
             .storeUint(0, 64) // queryId
             .storeAddress(owner)
             .storeBit(include_address)
