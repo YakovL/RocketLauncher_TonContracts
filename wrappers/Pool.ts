@@ -169,7 +169,6 @@ export class Pool implements Contract {
             // similarly to getEstimatedRequiredTonForJetton,
             // we compensate the (1 - fee)^2 factor of the tonAmount
             const compensatedTonAmount = tonAmount + tonAmount * 2n * feePerMille / 1000n;
-            console.log('compensatedTonAmount:',compensatedTonAmount)
             return -(await this.getEstimatedJettonForTon(provider, -compensatedTonAmount))
         } catch (error: any) {
             if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable
@@ -183,12 +182,14 @@ export class Pool implements Contract {
 
     // must be aligned with fee_sell_jetton_pool_tx;
     // estimated as totalFees on pool when selling
+    static readonly estimatedFixedFee_sendJettonExceptForward = 42_000_000n;
     static readonly estimatedFixedFee_sellJetton = 2_400_000n;
     // Estimated from the 'should allow to ... send jettons' and
     // 'should get its balance changed by no less than its ton_balance' tests.
     // For some reason, this is much greater than sendJetton_estimatedForwardAmount and can't be lowered;
     // however, a part of it is returned to the user with excesses.
-    static readonly estimatedMinimalValueToSend_sellJetton = 42_000_000n + this.estimatedFixedFee_sellJetton;
+    static readonly estimatedMinimalValueToSend_sellJetton =
+        this.estimatedFixedFee_sendJettonExceptForward + this.estimatedFixedFee_sellJetton;
 
     async getCollectFeeUpperEstimation(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("collect_fee_upper_estimation", []);
