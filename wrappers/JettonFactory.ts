@@ -28,17 +28,6 @@ type PoolFromFactoryConfig = JettonMinterConfig & {
     deployerSupplyPercent: bigint // not big, but int
 } & Pick<PoolInitConfig, 'minimalPrice'>
 
-export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
-    return beginCell()
-        .storeRef(config.minterCode)
-        .storeRef(config.walletCode)
-        .storeRef(config.poolCode)
-        .storeAddress(config.adminAddress)
-        .storeCoins(config.feePerMille)
-        .storeUint(config.maxDeployerSupplyPercent, 4) // 32% is definitely a red flag, 4 bits is enough
-    .endCell();
-}
-
 export class JettonFactory implements Contract {
     constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {}
 
@@ -46,8 +35,18 @@ export class JettonFactory implements Contract {
         return new JettonFactory(address);
     }
 
+    static jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
+        return beginCell()
+            .storeRef(config.minterCode)
+            .storeRef(config.walletCode)
+            .storeRef(config.poolCode)
+            .storeAddress(config.adminAddress)
+            .storeCoins(config.feePerMille)
+            .storeUint(config.maxDeployerSupplyPercent, 4) // 32% is definitely a red flag, 4 bits is enough
+        .endCell();
+    }
     static createFromConfig(config: JettonFactoryConfig, code: Cell, workchain = 0) {
-        const data = jettonFactoryConfigToCell(config);
+        const data = this.jettonFactoryConfigToCell(config);
         const init = { code, data };
         const address = contractAddress(workchain, init);
         return new JettonFactory(address, init);
