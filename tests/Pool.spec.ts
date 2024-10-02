@@ -15,13 +15,6 @@ describe('Pool', () => {
         uri: 'https://github.com/YakovL/ton-example-jetton/raw/master/jetton-metadata.json',
     } as Parameters<typeof JettonMinter.jettonContentToCell>[0];
 
-    // These were estimated from the 'should allow to ... send jettons' and
-    // 'should get its balance changed by no less than its ton_balance' tests.
-    // For some reason, setting fee_process_jetton_swap_tx doesn't allow to reduce sendJetton_estimatedForwardAmount;
-    // however, we add the incoming value to what is send to user, so this is not an extra fee.
-    const sendJetton_estimatedForwardAmount = 3_000_000n;
-    const sendJetton_estimatedValue = 42_000_000n + sendJetton_estimatedForwardAmount;
-
     let code: Cell;
     let minterCode: Cell;
     let walletCode: Cell;
@@ -76,7 +69,7 @@ describe('Pool', () => {
                 poolJettonBalance: initPoolJettonBalance,
                 minimalPrice: jettonMinPrice,
                 feePerMille,
-                factoryAddress: deployer.address,      // should be factory address in case of deployment by factory
+                factoryAddress: deployer.address,      // deployer "emulates" factory
                 jettonWalletAddress: poolJettonWalletAddress,
                 adminAddress: null, // i.e. same as deployer
                 jettonTotalSupply: initPoolJettonBalance * 20n / 19n,
@@ -121,12 +114,12 @@ describe('Pool', () => {
 
         const sendJettonAmount = deployerJettonBalance;
         const sellResult = await deployerJettonWalletContract.sendTransfer(deployer.getSender(),
-            sendJetton_estimatedValue,
+            Pool.estimatedMinimalValueToSend_sellJetton,
             sendJettonAmount,
             poolContract.address,   // to
             deployer.address,       // response address
             null,                   // custom payload
-            sendJetton_estimatedForwardAmount,
+            Pool.estimatedFixedFee_sellJetton,
             null                    // forward payload
         );
         expect(sellResult.transactions).not.toHaveTransaction({ success: false });
@@ -135,7 +128,7 @@ describe('Pool', () => {
         const deployerJettonBalanceAfterSell = await deployerJettonWalletContract.getJettonBalance();
 
         expect(deployerJettonBalanceAfterSell).toEqual(0n);
-        expect(deployerBalanceAfterSell - deployerBalanceBeforeSell - sendJetton_estimatedValue).toBeGreaterThan(0n);
+        expect(deployerBalanceAfterSell - deployerBalanceBeforeSell - Pool.estimatedMinimalValueToSend_sellJetton).toBeGreaterThan(0n);
     });
 
     it('should sell jettons by increasing price', async () => {
@@ -152,6 +145,42 @@ describe('Pool', () => {
         const balanceAfterSecondBuy = await deployerJettonWalletContract.getJettonBalance();
 
         expect(balanceAfterSecondBuy - balanceAfterFirstBuy).toBeLessThan(balanceAfterFirstBuy);
+    });
+
+    it('should revert selling jettons if the pool balance would exceed initial supply (at expense of seller)', async () => {
+        // mint some to deployer: since the pool balance is untouched,
+        // any attempt to send to pool would make its balance exceed initial supply
+        const userAmount = initPoolJettonBalance / 100n;
+        const mintResult = await minterContract.sendMint(
+            deployer.getSender(),
+            deployer.address,
+            userAmount,
+            50_000_000n, // TODO: estimate and set correct forward_ton_amount
+            60_000_000n  // TODO: estimate and set correct total_ton_amount
+        );
+        const walletCreatedEvent = mintResult.events.find(e => e.type === 'account_created');
+        expect(walletCreatedEvent).toBeTruthy();
+        const userJettonWalletAddress = (walletCreatedEvent as { account: Address }).account;
+        const userJettonWalletContract = blockchain.openContract(
+            JettonWallet.createFromAddress(userJettonWalletAddress)
+        );
+        expect(await userJettonWalletContract.getJettonBalance()).toEqual(userAmount);
+
+        const poolBalance = await poolContract.getBalance();
+        const sellResult = await userJettonWalletContract.sendTransfer(deployer.getSender(),
+            Pool.estimatedMinimalValueToSend_sellJetton,
+            userAmount,
+            poolContract.address,   // to
+            deployer.address,       // response address
+            null,                   // custom payload
+            Pool.estimatedFixedFee_sellJetton,
+            null                    // forward payload
+        );
+        const poolBalanceAfter = await poolContract.getBalance();
+
+        expect(poolBalanceAfter).toBeGreaterThanOrEqual(poolBalance);
+        expect(sellResult.transactions).not.toHaveTransaction({ success: false });
+        expect(await userJettonWalletContract.getJettonBalance()).toEqual(userAmount);
     });
 
     it('should get its balance changed by no less than its ton_balance', async () => {
@@ -183,10 +212,10 @@ describe('Pool', () => {
         const sendJettonAmount = await deployerJettonWalletContract.getJettonBalance();
 
         const sellResult = await deployerJettonWalletContract.sendTransfer(deployer.getSender(),
-            sendJetton_estimatedValue,
+            Pool.estimatedMinimalValueToSend_sellJetton,
             sendJettonAmount, poolContract.address,
             deployer.address,
-            null, sendJetton_estimatedForwardAmount, null
+            null, Pool.estimatedFixedFee_sellJetton, null
         );
         expect(sellResult.transactions).not.toHaveTransaction({ success: false });
 
@@ -195,6 +224,94 @@ describe('Pool', () => {
 
         expect(poolBalanceAfterSell - poolBalanceBeforeSell)
             .toBeGreaterThanOrEqual(poolVirtualTonBalanceAfterSell - poolVirtualTonBalanceBeforeSell);
+    });
+
+    it('should return correct exchange estimations', async () => {
+        const T0 = jettonMinPrice * initPoolJettonBalance;
+        // amountFactor and partFactor are arbitrary, may use random instead
+        // ..that is, except for the back-conversion test where factors less than 1000
+        //  lead to rounding of estimatedJettonAmount that's too rough (99.5 → 99)
+        const amountFactor = 1000n;
+        const tonAmountToSwap = amountFactor * jettonMinPrice;
+
+        // how much Jetton will I get for .. TON?
+        const estimatedJettonAmount = await poolContract.getEstimatedJettonForTon(tonAmountToSwap);
+        expect(estimatedJettonAmount).toBeLessThan(amountFactor);
+        const effectiveTonAmount = tonAmountToSwap - tonAmountToSwap * BigInt(feePerMille) / 1000n;
+        expect(estimatedJettonAmount).toEqual(effectiveTonAmount * initPoolJettonBalance / (T0 + effectiveTonAmount));
+
+        // how much TON should I provide to get .. Jetton?
+        const tonAmountForUnavailable = await poolContract.getEstimatedRequiredTonForJetton(initPoolJettonBalance + 1n);
+        expect(tonAmountForUnavailable).toEqual(poolContract.errorAmountNotAvailable);
+
+        const tonAmountForAvailable = await poolContract.getEstimatedRequiredTonForJetton(initPoolJettonBalance - 1n);
+        expect(tonAmountForAvailable).not.toEqual(poolContract.errorAmountNotAvailable);
+
+        const estimatedRequiredTonAmount = await poolContract.getEstimatedRequiredTonForJetton(estimatedJettonAmount);
+        if(estimatedRequiredTonAmount == poolContract.errorAmountNotAvailable) throw 'unexpectedly, getter told amount is not available';
+        const diff = estimatedRequiredTonAmount - tonAmountToSwap;
+        const absDiff = diff > 0n ? diff : - diff;
+        // that is, when amountFactor is big enough (see above) and feePerMille is small enough
+        expect(absDiff).toBeLessThan(tonAmountToSwap / 1000n);
+
+        await poolContract.sendBuyJetton(deployer.getSender(), tonAmountToSwap);
+
+        const newJettonBalance = await poolContract.getVirtualJettonBalance();
+        const newTonBalance = await poolContract.getVirtualTonBalance();
+        // due to tx fees, estimatedJettonAmount is less than what the user really gets
+        expect(newJettonBalance).toBeGreaterThan(initPoolJettonBalance - estimatedJettonAmount);
+        expect(newTonBalance).toBeLessThan(tonAmountToSwap);
+
+        const partFactor = 2n;
+        const userBalance = initPoolJettonBalance - newJettonBalance;
+        const jettonAmountToSwap = userBalance / partFactor;
+
+        // how much TON will I get for .. Jetton?
+        const estimatedTonAmount = await poolContract.getEstimatedTonForJetton(jettonAmountToSwap);
+        expect(estimatedTonAmount).toBeLessThan(tonAmountToSwap / partFactor);
+        const expectedSwapTonAmount = jettonAmountToSwap * (newTonBalance + T0) / (newJettonBalance + jettonAmountToSwap);
+        const effectiveSwapTonAmount = expectedSwapTonAmount - expectedSwapTonAmount * BigInt(feePerMille) / 1000n;
+        // JS rounding of / 1000n doesn't always round up, which we do in the contract
+        expect(estimatedTonAmount).toBeLessThanOrEqual(effectiveSwapTonAmount);
+        expect(estimatedTonAmount).toBeGreaterThanOrEqual(effectiveSwapTonAmount - 1n);
+
+        // how much Jetton should I provide to get .. TON?
+        const availableToBalance = newTonBalance - newTonBalance * BigInt(feePerMille) / 1000n;
+        // we don't use just +1n, because the estimation is not precise:
+        // amount * (1 - fee) * (1 + 2 * fee) * (1 - fee) = amount (1 - 3 fee^2 + 2 fee^3) < amount
+        // note that factor 1000n here is not arbitrary: it implies that fee^2 << 0.001
+        const jettonAmountForUnavailable = await poolContract.getEstimatedRequiredJettonForTon(
+            availableToBalance + availableToBalance / 1000n);
+        expect(jettonAmountForUnavailable).toEqual(poolContract.errorAmountNotAvailable);
+
+        const jettonAmountForAvailable = await poolContract.getEstimatedRequiredJettonForTon(availableToBalance);
+        expect(jettonAmountForAvailable).not.toEqual(poolContract.errorAmountNotAvailable);
+
+        const estimatedRequiredJettonAmount = await poolContract.getEstimatedRequiredJettonForTon(estimatedTonAmount);
+        if(estimatedRequiredJettonAmount == poolContract.errorAmountNotAvailable) throw 'unexpectedly, getter told amount is not available';
+        const diffJtn = estimatedRequiredJettonAmount - jettonAmountToSwap;
+        const absDiffJtn = diffJtn > 0n ? diffJtn : - diffJtn;
+        if(jettonAmountToSwap / 1000n > 0) {
+            expect(absDiffJtn).toBeLessThan(jettonAmountToSwap / 1000n);
+        } else {
+            expect(absDiffJtn).toEqual(jettonAmountToSwap / 1000n);
+        }
+    });
+
+    it('should return correct estimations of exchange fees and overall exchange result', async () => {
+        const amountFactor = 1000n;
+        const tonAmountToSwap = amountFactor * jettonMinPrice;
+
+        const fixedTxFee = await poolContract.getBuyJettonFixedFee();
+        const estimatedJettonAmount = await poolContract.getEstimatedJettonForTon(tonAmountToSwap);
+
+        await poolContract.sendBuyJetton(deployer.getSender(), tonAmountToSwap + fixedTxFee);
+
+        const newJettonBalance = await poolContract.getVirtualJettonBalance();
+        const receivedJettonsAmount = initPoolJettonBalance - newJettonBalance;
+
+        // got exact equality!
+        expect(receivedJettonsAmount).toBeGreaterThanOrEqual(estimatedJettonAmount);
     });
 
     it('should allow admin to collect funds', async () => {

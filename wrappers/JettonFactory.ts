@@ -28,17 +28,6 @@ type PoolFromFactoryConfig = JettonMinterConfig & {
     deployerSupplyPercent: bigint // not big, but int
 } & Pick<PoolInitConfig, 'minimalPrice'>
 
-export function jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
-    return beginCell()
-        .storeRef(config.minterCode)
-        .storeRef(config.walletCode)
-        .storeRef(config.poolCode)
-        .storeAddress(config.adminAddress)
-        .storeCoins(config.feePerMille)
-        .storeUint(config.maxDeployerSupplyPercent, 4) // 32% is definitely a red flag, 4 bits is enough
-    .endCell();
-}
-
 export class JettonFactory implements Contract {
     constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {}
 
@@ -46,14 +35,23 @@ export class JettonFactory implements Contract {
         return new JettonFactory(address);
     }
 
+    static jettonFactoryConfigToCell(config: JettonFactoryConfig): Cell {
+        return beginCell()
+            .storeRef(config.minterCode)
+            .storeRef(config.walletCode)
+            .storeRef(config.poolCode)
+            .storeAddress(config.adminAddress)
+            .storeCoins(config.feePerMille)
+            .storeUint(config.maxDeployerSupplyPercent, 4) // 32% is definitely a red flag, 4 bits is enough
+        .endCell();
+    }
     static createFromConfig(config: JettonFactoryConfig, code: Cell, workchain = 0) {
-        const data = jettonFactoryConfigToCell(config);
+        const data = this.jettonFactoryConfigToCell(config);
         const init = { code, data };
         const address = contractAddress(workchain, init);
         return new JettonFactory(address, init);
     }
 
-    // TODO: make sure the amount is sufficient (maybe via autotests)
     estimatedDeployGasPrice = toNano('0.05');
 
     async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
@@ -69,36 +67,12 @@ export class JettonFactory implements Contract {
         initiateNew: 1,
         onPoolDeployProceedToMinter: 2,
         upgrade: 111,
-    };
+    } as const;
 
     // public methods
-    // Based on https://github.com/ton-blockchain/token-contract/blob/main/wrappers/JettonMinter.ts
-    // In our case, admin is the factory contract and wallet code is stored inside it, so JettonMinterConfig is simpler
-    async sendDeployNewJetton(provider: ContractProvider, via: Sender, config: JettonMinterConfig) {
-        // TODO: learn how to generate them, set a "correct" one (at least unique)
-        const query_id = 0;
-        // must be aligned with jetton-minter (more specifically: ?, see also https://docs.ton.org/develop/dapps/asset-processing/jettons#retrieving-jetton-data)
-        const content = JettonMinter.jettonContentToCell({
-            type: config.metadataType,
-            uri: config.metadataUri, // presumably, .storeStringTail in jettonContentToCell implements snake data encoding (https://docs.ton.org/develop/dapps/asset-processing/metadata)
-        });
-        // less than 0.01 is needed for Jetton deploy, so 0.02 is more than enough
-        // TODO: retest after adding other operations
-        const value = toNano('0.02');
 
-        await provider.internal(via, {
-            value,
-            sendMode: SendMode.PAY_GAS_SEPARATELY,
-            // must be aligned with jetton_factory.rc (see operation_deploy_jetton)
-            body: beginCell()
-                .storeUint(JettonFactory.ops.onPoolDeployProceedToMinter, 32)
-                .storeUint(query_id, 64)
-                .storeCoins(config.totalSupply)
-                .storeRef(content)
-            .endCell(),
-        });
-    }
-
+    // 0.1 is enough for wallet → factory → pool → factory; 0.15 for + deploy and mint to pool; 0.22 for + mint to deployer
+    static sendInitiateNew_estimatedValue = toNano('0.22')
     async sendInitiateNew(provider: ContractProvider, via: Sender, value: bigint, config: Omit<PoolFromFactoryConfig, 'metadataType'>) {
         const content = JettonMinter.jettonContentToCell({
             type: 1,
@@ -120,7 +94,11 @@ export class JettonFactory implements Contract {
         });
     }
 
-    async sendUpgrade(provider: ContractProvider, via: Sender, value: bigint, newCode: Cell) {
+    // rough estimations from the tests; fails for 500_000n (shouldUpdatePool: false) and for 1_000_000n (true)
+    static get_sendUpgrade_estimatedValue = (shouldUpdatePool: boolean) => shouldUpdatePool ? 1_500_000n : 1_000_000n;
+    async sendUpgrade(provider: ContractProvider, via: Sender, value: bigint, newCode: Cell, options: {
+        newPoolCode?: Cell
+    }) {
         const query_id = 0;
         await provider.internal(via, {
             value,
@@ -129,6 +107,7 @@ export class JettonFactory implements Contract {
                 .storeUint(JettonFactory.ops.upgrade, 32)
                 .storeUint(query_id, 64)
                 .storeRef(newCode)
+                .storeMaybeRef(options.newPoolCode)
             .endCell(),
         });
     }

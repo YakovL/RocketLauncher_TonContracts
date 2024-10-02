@@ -29,6 +29,7 @@ export class Pool implements Contract {
     static poolConfigToCell(config: PoolConfigAddressDefining): Cell {
         return beginCell()
             .storeRef(config.poolJettonContent)
+            .storeCoins(0)     // placeholder: INITIAL_JETTON_BALANCE
             .storeCoins(0)     // placeholder: jetton_balance
             .storeCoins(0)     // initial ton balance is 0
             .storeCoins(0)     // placeholder: T0
@@ -72,11 +73,11 @@ export class Pool implements Contract {
     }
 
     static ops = {
-        // these must be aligned with pool.rc
+        // these must be aligned with ops_and_errors.rc
         init: 101,
         collectFunds: 102,
         buyJetton: 1,
-    };
+    } as const;
 
     async sendBuyJetton(provider: ContractProvider, via: Sender,
         value: bigint
@@ -103,10 +104,92 @@ export class Pool implements Contract {
         return stack.readBigNumber();
     }
 
+    async getVirtualJettonBalance(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("jetton_balance", []);
+        return stack.readBigNumber();
+    }
+
+    async getSoldJettonsAmount(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("sold_jettons_amount", []);
+        return stack.readBigNumber();
+    }
+
     async getBuyJettonFixedFee(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("buy_jetton_fixed_fee", []);
         return stack.readBigNumber();
     }
+
+    async getEstimatedJettonForTon(provider: ContractProvider, tonAmount: bigint): Promise<bigint> {
+        const { stack } = await provider.get("estimated_jetton_for_ton", [{
+            type: 'int',
+            value: tonAmount
+        }]);
+        return stack.readBigNumber();
+    }
+
+    async getEstimatedTonForJetton(provider: ContractProvider, jettonAmount: bigint): Promise<bigint> {
+        const { stack } = await provider.get("estimated_ton_for_jetton", [{
+            type: 'int',
+            value: jettonAmount
+        }]);
+        return stack.readBigNumber();
+    }
+
+    // we can hardcode this value until we change it once on the contracts side
+    async getFeePerMille(provider: ContractProvider): Promise<bigint> {
+        const { stack } = await provider.get("fee_per_mille", []);
+        return stack.readBigNumber();
+    }
+
+    readonly errorAmountNotAvailable = 'amount_not_available';
+    readonly contractErrorAmountNotAvailable = 0xfff3;
+
+    async getEstimatedRequiredTonForJetton(provider: ContractProvider, jettonAmount: bigint) {
+        const feePerMille = await this.getFeePerMille(provider);
+        try {
+            const amount = -(await this.getEstimatedTonForJetton(provider, -jettonAmount));
+
+            // getEstimatedTonForJetton returns amount = AMM_amount * (1 - fee)
+            // while we have to compensate further fees by dividing AMM_amount by (1 - fee),
+            // i.e. we need amount/(1 - fee)^2, which we estimate as amount*(1 + 2*fee)
+            return amount + amount * 2n * feePerMille / 1000n;
+        } catch (error: any) {
+            if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable
+             || 'message' in error && error.message.includes(`exit_code: ${this.contractErrorAmountNotAvailable}`)
+            ) {
+                return this.errorAmountNotAvailable
+            }
+            throw error
+        }
+    }
+
+    async getEstimatedRequiredJettonForTon(provider: ContractProvider, tonAmount: bigint) {
+        const feePerMille = await this.getFeePerMille(provider);
+        try {
+            // similarly to getEstimatedRequiredTonForJetton,
+            // we compensate the (1 - fee)^2 factor of the tonAmount
+            const compensatedTonAmount = tonAmount + tonAmount * 2n * feePerMille / 1000n;
+            return -(await this.getEstimatedJettonForTon(provider, -compensatedTonAmount))
+        } catch (error: any) {
+            if('exitCode' in error && error.exitCode == this.contractErrorAmountNotAvailable
+             || 'message' in error && error.message.includes(`exit_code: ${this.contractErrorAmountNotAvailable}`)
+            ) {
+                return this.errorAmountNotAvailable
+            }
+            throw error
+        }
+    }
+
+    // must be aligned with fee_sell_jetton_pool_tx;
+    // estimated as totalFees on pool when selling
+    static readonly estimatedFixedFee_sendJettonExceptForward = 42_000_000n;
+    static readonly estimatedFixedFee_sellJetton = 2_400_000n;
+    // Estimated from the 'should allow to ... send jettons' and
+    // 'should get its balance changed by no less than its ton_balance' tests.
+    // For some reason, this is much greater than sendJetton_estimatedForwardAmount and can't be lowered;
+    // however, a part of it is returned to the user with excesses.
+    static readonly estimatedMinimalValueToSend_sellJetton =
+        this.estimatedFixedFee_sendJettonExceptForward + this.estimatedFixedFee_sellJetton;
 
     async getCollectFeeUpperEstimation(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("collect_fee_upper_estimation", []);
@@ -131,5 +214,12 @@ export class Pool implements Contract {
     async getCollectableFundsAmount(provider: ContractProvider): Promise<bigint> {
         const { stack } = await provider.get("collectable_funds_amount", []);
         return stack.readBigNumber();
+    }
+
+    /**
+     * This method is intended solely for autotests of upgrading
+     */
+    getProvider(provider: ContractProvider): ContractProvider {
+        return provider;
     }
 }

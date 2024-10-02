@@ -9,6 +9,7 @@ const operation_factory__upgrade = 111;
 const error_pool__already_initiated = 0xfff0;
 const error_pool__not_allowed_before_initiate = 0xfff1;
 const error_pool__notification_from_wrong_address = 0xfff2;
+const error_pool__amount_not_available = 0xfff3;
 
 const error_operation_not_allowed_from_this_address = 403;
 const error_provided_less_ton_than_minimal_estimated_value = 407;
