@@ -136,8 +136,6 @@ cell build_mint_body(
     );
 }
 
-;; TODO: optimize Pool.estimatedDeployGasPrice first, cover with autotests, then propagate here; check also message mode
-const deploy_pool_fee_estimation = 10 * 1000000;
 () deploy_pool(
     cell init_state,
     slice address,   ;; = calculate_contract_address(init_state), but since we calc it before, let's not calc it again
@@ -155,7 +153,7 @@ const deploy_pool_fee_estimation = 10 * 1000000;
             ;; header
             .store_uint(0x18, 6)
             .store_slice(address)
-            .store_coins(deploy_pool_fee_estimation)
+            .store_coins(0)
             .store_uint(0, 1 + 4 + 4 + 64 + 32)
 
             ;; init
@@ -182,7 +180,8 @@ const deploy_pool_fee_estimation = 10 * 1000000;
             .end_cell())
         .end_cell(),
 
-        0 + 16
+        ;; pass remaining gas for the next txs, so it's easier to adapt the correct value
+        64 + 16
     );
 }
 
